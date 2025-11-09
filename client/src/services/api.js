@@ -43,13 +43,12 @@ if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' &&
   }
 }
 
-// Log para debug - FORÇAR URL DE PRODUÇÃO
-const finalBaseURL = getBaseURL();
+// Log para debug - usar a mesma baseURL já calculada
 console.log('🔧 API Configurada:', {
   VITE_API_URL: import.meta.env.VITE_API_URL,
   hostname: typeof window !== 'undefined' ? window.location.hostname : 'N/A',
-  baseURL: finalBaseURL,
-  'URL completa exemplo': `${finalBaseURL}/auth/employee`
+  baseURL: baseURL,
+  'URL completa exemplo': `${baseURL}/auth/employee`
 });
 
 // Interceptor para tratar respostas
