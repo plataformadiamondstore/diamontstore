@@ -31,6 +31,8 @@ export default function Login() {
 
     try {
       console.log('Tentando fazer login...', { empresa_numero: empresaNumero, clube_numero: clubeNumero });
+      console.log('API Base URL:', import.meta.env.VITE_API_URL || '/api');
+      console.log('URL completa será:', `${import.meta.env.VITE_API_URL || '/api'}/auth/employee`);
       
       const response = await api.post('/auth/employee', {
         empresa_numero: empresaNumero,
@@ -76,6 +78,11 @@ export default function Login() {
           src="/banners/banner-sloth-partners.jpeg" 
           alt="Sloth Partners Banner" 
           className="w-full h-auto object-contain max-h-[200px] sm:max-h-[250px] md:max-h-[300px] lg:max-h-[350px]"
+          onError={(e) => {
+            console.error('Erro ao carregar banner:', e);
+            e.target.style.display = 'none';
+          }}
+          onLoad={() => console.log('Banner carregado com sucesso')}
         />
       </div>
       

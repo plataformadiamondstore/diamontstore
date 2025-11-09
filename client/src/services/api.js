@@ -1,11 +1,27 @@
 import axios from 'axios';
 
+// Configurar baseURL: se VITE_API_URL estiver definido, usar ele + /api, senão usar /api
+const getBaseURL = () => {
+  const envUrl = import.meta.env.VITE_API_URL;
+  if (envUrl) {
+    // Se a URL já termina com /api, não adicionar novamente
+    return envUrl.endsWith('/api') ? envUrl : `${envUrl}/api`;
+  }
+  return '/api';
+};
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || '/api',
+  baseURL: getBaseURL(),
   timeout: 10000, // 10 segundos de timeout
   headers: {
     'Content-Type': 'application/json',
   },
+});
+
+// Log para debug
+console.log('API Configurada:', {
+  VITE_API_URL: import.meta.env.VITE_API_URL,
+  baseURL: getBaseURL()
 });
 
 // Interceptor para tratar respostas
