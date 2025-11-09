@@ -7,17 +7,27 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
-    <meta name="version" content="2025-01-27-v3" />
+    <meta name="version" content="2025-01-27-v4-FORCE" />
     <title>Sloth Empresas</title>
     <script>
       // Forçar reload se detectar versão antiga em cache
-      const currentVersion = '2025-01-27-v3';
+      const currentVersion = '2025-01-27-v4-FORCE';
       const cachedVersion = localStorage.getItem('app-version');
+      console.log('🔍 Verificando versão:', { currentVersion, cachedVersion });
       if (cachedVersion && cachedVersion !== currentVersion) {
+        console.log('⚠️ Versão antiga detectada! Limpando cache...');
         localStorage.clear();
+        sessionStorage.clear();
+        // Forçar reload sem cache
+        if ('caches' in window) {
+          caches.keys().then(names => {
+            names.forEach(name => caches.delete(name));
+          });
+        }
         location.reload(true);
       }
       localStorage.setItem('app-version', currentVersion);
+      console.log('✅ Versão atual:', currentVersion);
     </script>
   </head>
   <body>

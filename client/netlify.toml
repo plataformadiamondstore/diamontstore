@@ -1,11 +1,17 @@
 [build]
-  command = "npm run build"
+  # IMPORTANTE: Se o Netlify está configurado na raiz do repo, usar:
+  base = "client"
+  command = "npm cache clean --force && rm -rf node_modules dist && npm install && npm run build"
   publish = "dist"
 
 [build.environment]
   NODE_VERSION = "18"
   # Forçar rebuild sem cache
   CI = "true"
+  # Variável para forçar rebuild
+  FORCE_REBUILD = "true"
+  # Desabilitar cache do npm
+  NPM_FLAGS = "--no-cache"
 
 # HEADERS AGRESSIVOS - SEM CACHE PARA HTML E JS
 [[headers]]
