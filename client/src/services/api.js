@@ -18,9 +18,12 @@ const getBaseURL = () => {
     console.log('🔍 Hostname detectado:', hostname);
     
     // Se não for localhost, SEMPRE usar api.slothempresas.com.br
+    // Isso inclui: slothempresas.com.br, www.slothempresas.com.br, *.netlify.app, etc
     if (hostname !== 'localhost' && hostname !== '127.0.0.1' && !hostname.includes('localhost')) {
+      // FORÇAR uso de api.slothempresas.com.br SEMPRE em produção
       const apiUrl = 'https://api.slothempresas.com.br/api';
       console.warn('⚠️ VITE_API_URL não configurada! FORÇANDO uso de produção:', apiUrl);
+      console.warn('⚠️ Hostname atual:', hostname, '→ Usando API:', apiUrl);
       return apiUrl;
     }
   }
@@ -30,8 +33,23 @@ const getBaseURL = () => {
   return '/api';
 };
 
-// FORÇAR baseURL ANTES de criar a instância
-const baseURL = getBaseURL();
+// FORÇAR baseURL ANTES de criar a instância - EXECUTAR IMEDIATAMENTE
+let baseURL = getBaseURL();
+
+// SE ESTIVER EM PRODUÇÃO E BASEURL NÃO FOR API CORRETA, FORÇAR
+if (typeof window !== 'undefined' && window.location) {
+  const hostname = window.location.hostname;
+  if (hostname !== 'localhost' && hostname !== '127.0.0.1' && !hostname.includes('localhost')) {
+    // Se não contém api.slothempresas.com.br, FORÇAR
+    if (!baseURL.includes('api.slothempresas.com.br')) {
+      console.error('❌ CORRIGINDO baseURL incorreto!');
+      console.error('   Hostname:', hostname);
+      console.error('   baseURL incorreto:', baseURL);
+      baseURL = 'https://api.slothempresas.com.br/api';
+      console.error('   baseURL CORRIGIDO para:', baseURL);
+    }
+  }
+}
 
 const api = axios.create({
   baseURL: baseURL,
