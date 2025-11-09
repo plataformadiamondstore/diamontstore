@@ -1,0 +1,11 @@
+node_modules/
+.env
+uploads/
+*.log
+senhas.txt
+server-error.txt
+server-output.txt
+*.txt
+!README.md
+!*.md
+
