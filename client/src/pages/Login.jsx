@@ -71,28 +71,62 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-100 to-gray-200 flex flex-col">
+    <div 
+      className="min-h-screen bg-gradient-to-br from-gray-100 to-gray-200 flex flex-col"
+      style={{
+        minHeight: '100vh',
+        background: 'linear-gradient(to bottom right, #f3f4f6, #e5e7eb)',
+        display: 'flex',
+        flexDirection: 'column'
+      }}
+    >
       {/* Banner na parte superior - responsivo */}
-      <div className="w-full flex justify-center overflow-hidden bg-gray-100 min-h-[150px]">
+      <div 
+        className="w-full flex justify-center overflow-hidden bg-gray-100 min-h-[150px]"
+        style={{
+          width: '100%',
+          display: 'flex',
+          justifyContent: 'center',
+          overflow: 'hidden',
+          backgroundColor: '#f3f4f6',
+          minHeight: '150px'
+        }}
+      >
         <img 
-          src={`${window.location.origin}/banners/banner-sloth-partners.jpeg`}
+          src={`${window.location.origin}/banners/banner-sloth-partners.jpeg?t=${Date.now()}`}
           alt="Sloth Partners Banner" 
           className="w-full h-auto object-contain max-h-[200px] sm:max-h-[250px] md:max-h-[300px] lg:max-h-[350px]"
+          style={{
+            width: '100%',
+            height: 'auto',
+            objectFit: 'contain',
+            maxHeight: '200px'
+          }}
           onError={(e) => {
-            console.error('Erro ao carregar banner:', e.target.src);
-            // Tentar caminho relativo
-            if (!e.target.src.includes('./banners')) {
-              e.target.src = './banners/banner-sloth-partners.jpeg';
+            console.error('❌ Erro ao carregar banner:', e.target.src);
+            // Tentar múltiplos caminhos
+            const paths = [
+              '/banners/banner-sloth-partners.jpeg',
+              './banners/banner-sloth-partners.jpeg',
+              `${window.location.origin}/banners/banner-sloth-partners.jpeg`
+            ];
+            const currentPath = e.target.src.split('?')[0];
+            const nextPathIndex = paths.findIndex(p => currentPath.includes(p)) + 1;
+            
+            if (nextPathIndex < paths.length) {
+              console.log('🔄 Tentando próximo caminho:', paths[nextPathIndex]);
+              e.target.src = paths[nextPathIndex] + `?t=${Date.now()}`;
             } else {
-              // Se ainda falhar, mostrar placeholder
+              // Se todos falharem, mostrar placeholder
+              console.log('⚠️ Todos os caminhos falharam, mostrando placeholder');
               e.target.style.display = 'none';
               const placeholder = document.createElement('div');
-              placeholder.className = 'w-full h-32 bg-gradient-to-r from-purple-400 to-purple-600 flex items-center justify-center';
-              placeholder.innerHTML = '<span class="text-white text-xl font-bold">Sloth Partners</span>';
+              placeholder.style.cssText = 'width: 100%; height: 128px; background: linear-gradient(to right, #a78bfa, #7c3aed); display: flex; align-items: center; justify-content: center;';
+              placeholder.innerHTML = '<span style="color: white; font-size: 1.25rem; font-weight: bold;">Sloth Partners</span>';
               e.target.parentElement.appendChild(placeholder);
             }
           }}
-          onLoad={() => console.log('✅ Banner carregado com sucesso')}
+          onLoad={(e) => console.log('✅ Banner carregado com sucesso:', e.target.src)}
         />
       </div>
       

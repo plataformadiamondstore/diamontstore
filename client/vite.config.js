@@ -38,17 +38,21 @@ export default defineConfig({
       output: {
         manualChunks: undefined,
         // Forçar hash em todos os arquivos para cache-busting
-        entryFileNames: 'assets/[name].[hash].js',
-        chunkFileNames: 'assets/[name].[hash].js',
-        assetFileNames: 'assets/[name].[hash].[ext]'
+        entryFileNames: 'assets/[name]-[hash].js',
+        chunkFileNames: 'assets/[name]-[hash].js',
+        assetFileNames: 'assets/[name]-[hash].[ext]'
       }
     },
     // Limpar diretório de build antes de cada build
     emptyOutDir: true,
-    // Desabilitar minificação de nomes para debug (opcional)
+    // Minificar para produção
     minify: 'terser',
-    // Forçar rebuild mesmo se nada mudou
-    force: false
+    // CSS code splitting
+    cssCodeSplit: true,
+    // Forçar geração de sourcemaps (pode ajudar no debug)
+    sourcemap: false,
+    // Tamanho do chunk warning
+    chunkSizeWarningLimit: 1000
   }
 })
 
