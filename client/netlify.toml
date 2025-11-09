@@ -1,8 +1,8 @@
 [build]
   # Base directory - Netlify vai executar comandos dentro de client/
   base = "client"
-  # Build command - limpa tudo e faz rebuild completo
-  command = "npm cache clean --force && rm -rf node_modules dist && npm install && npm run build"
+  # Build command - usa script explícito que força rebuild completo
+  command = "chmod +x build.sh && ./build.sh"
   # Publish directory - relativo ao base, então "dist" significa "client/dist"
   publish = "dist"
 
