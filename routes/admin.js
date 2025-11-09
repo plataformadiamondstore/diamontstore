@@ -1439,6 +1439,34 @@ router.put('/pedidos/:id/rejeitar', async (req, res) => {
   }
 });
 
+// Excluir pedido
+router.delete('/pedidos/:id', async (req, res) => {
+  try {
+    // Primeiro, excluir os itens do pedido (pedido_itens)
+    const { error: deleteItensError } = await supabase
+      .from('pedido_itens')
+      .delete()
+      .eq('pedido_id', req.params.id);
+
+    if (deleteItensError) {
+      console.error('Erro ao excluir itens do pedido:', deleteItensError);
+      throw deleteItensError;
+    }
+
+    // Depois, excluir o pedido
+    const { error: deleteError } = await supabase
+      .from('pedidos')
+      .delete()
+      .eq('id', req.params.id);
+
+    if (deleteError) throw deleteError;
+    res.json({ success: true, message: 'Pedido excluído com sucesso' });
+  } catch (error) {
+    console.error('Erro ao excluir pedido:', error);
+    res.status(500).json({ error: error.message || 'Erro ao excluir pedido' });
+  }
+});
+
 // ========== CADASTROS (Categorias, Marcas, Tamanhos) ==========
 
 // Categorias
