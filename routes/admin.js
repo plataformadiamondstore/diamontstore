@@ -31,14 +31,68 @@ router.post('/empresas', async (req, res) => {
   try {
     const { nome, cadastro_empresa } = req.body;
     
-    // Inserir sem .single() para evitar erro de coerção
+    // Validar campos obrigatórios
+    if (!nome) {
+      return res.status(400).json({ error: 'Nome da empresa é obrigatório' });
+    }
+    
+    // Se cadastro_empresa foi fornecido, verificar se já existe
+    if (cadastro_empresa && cadastro_empresa.trim() !== '') {
+      const { data: empresaExistente, error: checkError } = await supabase
+        .from('empresas')
+        .select('id, nome, cadastro_empresa')
+        .eq('cadastro_empresa', cadastro_empresa.trim())
+        .limit(1);
+      
+      if (checkError) {
+        console.error('Erro ao verificar empresa existente:', checkError);
+        throw checkError;
+      }
+      
+      if (empresaExistente && empresaExistente.length > 0) {
+        return res.status(400).json({ 
+          error: `Já existe uma empresa cadastrada com o cadastro "${cadastro_empresa}". Empresa: ${empresaExistente[0].nome}` 
+        });
+      }
+    }
+    
+    // Gerar cadastro_empresa único se não foi fornecido ou está vazio
+    let cadastroEmpresaFinal = cadastro_empresa;
+    if (!cadastroEmpresaFinal || cadastroEmpresaFinal.trim() === '') {
+      // Gerar um cadastro único baseado no nome da empresa e timestamp
+      const timestamp = Date.now();
+      const nomeNormalizado = nome.trim().toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 10);
+      cadastroEmpresaFinal = `${nomeNormalizado}${timestamp.toString().slice(-6)}`;
+      
+      // Verificar se o cadastro gerado já existe (improvável, mas verificar)
+      const { data: cadastroExistente } = await supabase
+        .from('empresas')
+        .select('id')
+        .eq('cadastro_empresa', cadastroEmpresaFinal)
+        .limit(1);
+      
+      if (cadastroExistente && cadastroExistente.length > 0) {
+        // Se por acaso existir, adicionar mais números
+        cadastroEmpresaFinal = `${nomeNormalizado}${timestamp}`;
+      }
+    }
+    
+    // Inserir empresa
     const { data: empresasInseridas, error: insertError } = await supabase
       .from('empresas')
-      .insert({ nome, cadastro_empresa })
+      .insert({ nome, cadastro_empresa: cadastroEmpresaFinal.trim() })
       .select();
 
     if (insertError) {
       console.error('Erro ao inserir empresa:', insertError);
+      
+      // Tratar erro de constraint única de forma mais amigável
+      if (insertError.code === '23505' || insertError.message?.includes('unique constraint') || insertError.message?.includes('duplicate key')) {
+        return res.status(400).json({ 
+          error: 'Já existe uma empresa cadastrada com este cadastro. Por favor, verifique os dados e tente novamente.' 
+        });
+      }
+      
       throw insertError;
     }
 
@@ -49,6 +103,14 @@ router.post('/empresas', async (req, res) => {
     res.json({ success: true, empresa: empresasInseridas[0], id: empresasInseridas[0].id });
   } catch (error) {
     console.error('Erro completo ao criar empresa:', error);
+    
+    // Melhorar mensagem de erro para constraint única
+    if (error.code === '23505' || error.message?.includes('unique constraint') || error.message?.includes('duplicate key')) {
+      return res.status(400).json({ 
+        error: 'Já existe uma empresa cadastrada com este cadastro. Por favor, verifique os dados e tente novamente.' 
+      });
+    }
+    
     res.status(500).json({ error: error.message || 'Erro ao criar empresa' });
   }
 });
