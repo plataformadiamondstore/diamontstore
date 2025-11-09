@@ -4,18 +4,53 @@
 
 [build.environment]
   NODE_VERSION = "18"
+  # Forçar rebuild sem cache
+  CI = "true"
+
+# HEADERS AGRESSIVOS - SEM CACHE PARA HTML E JS
+[[headers]]
+  for = "/index.html"
+  [headers.values]
+    Cache-Control = "no-cache, no-store, must-revalidate, max-age=0"
+    Pragma = "no-cache"
+    Expires = "0"
+    X-Content-Type-Options = "nosniff"
 
 [[headers]]
-  for = "/*"
+  for = "/*.js"
   [headers.values]
-    Cache-Control = "no-cache, no-store, must-revalidate"
+    Cache-Control = "no-cache, no-store, must-revalidate, max-age=0"
     Pragma = "no-cache"
     Expires = "0"
 
 [[headers]]
-  for = "/static/*"
+  for = "/*.css"
   [headers.values]
-    Cache-Control = "public, max-age=31536000, immutable"
+    Cache-Control = "no-cache, no-store, must-revalidate, max-age=0"
+    Pragma = "no-cache"
+    Expires = "0"
+
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "no-cache, no-store, must-revalidate, max-age=0"
+    Pragma = "no-cache"
+    Expires = "0"
+
+# Headers gerais - SEM CACHE
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Cache-Control = "no-cache, no-store, must-revalidate, max-age=0"
+    Pragma = "no-cache"
+    Expires = "0"
+    X-Cache-Bust = "true"
+
+# Imagens podem ter cache, mas com revalidação
+[[headers]]
+  for = "/banners/*"
+  [headers.values]
+    Cache-Control = "public, max-age=3600, must-revalidate"
 
 [[redirects]]
   from = "/*"

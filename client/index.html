@@ -4,7 +4,21 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+    <meta name="version" content="2025-01-27-v3" />
     <title>Sloth Empresas</title>
+    <script>
+      // Forçar reload se detectar versão antiga em cache
+      const currentVersion = '2025-01-27-v3';
+      const cachedVersion = localStorage.getItem('app-version');
+      if (cachedVersion && cachedVersion !== currentVersion) {
+        localStorage.clear();
+        location.reload(true);
+      }
+      localStorage.setItem('app-version', currentVersion);
+    </script>
   </head>
   <body>
     <div id="root"></div>

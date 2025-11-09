@@ -33,12 +33,22 @@ export default defineConfig({
     }
   },
   build: {
-    // Garantir que as variáveis de ambiente sejam substituídas corretamente
+    // Forçar geração de hashes únicos para evitar cache
     rollupOptions: {
       output: {
-        manualChunks: undefined
+        manualChunks: undefined,
+        // Forçar hash em todos os arquivos para cache-busting
+        entryFileNames: 'assets/[name].[hash].js',
+        chunkFileNames: 'assets/[name].[hash].js',
+        assetFileNames: 'assets/[name].[hash].[ext]'
       }
-    }
+    },
+    // Limpar diretório de build antes de cada build
+    emptyOutDir: true,
+    // Desabilitar minificação de nomes para debug (opcional)
+    minify: 'terser',
+    // Forçar rebuild mesmo se nada mudou
+    force: false
   }
 })
 
