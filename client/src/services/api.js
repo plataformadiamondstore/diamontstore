@@ -2,25 +2,30 @@ import axios from 'axios';
 
 // Configurar baseURL: se VITE_API_URL estiver definido, usar ele + /api, senão usar /api
 const getBaseURL = () => {
+  // PRIMEIRO: Verificar se VITE_API_URL está configurada
   const envUrl = import.meta.env.VITE_API_URL;
   
-  if (envUrl) {
+  if (envUrl && envUrl.trim() !== '') {
     // Se a URL já termina com /api, não adicionar novamente
-    return envUrl.endsWith('/api') ? envUrl : `${envUrl}/api`;
+    const finalUrl = envUrl.endsWith('/api') ? envUrl : `${envUrl}/api`;
+    console.log('✅ Usando VITE_API_URL:', finalUrl);
+    return finalUrl;
   }
   
-  // Fallback: se estiver em produção (não localhost), SEMPRE usar o domínio da API
-  if (typeof window !== 'undefined') {
+  // SEGUNDO: Se não tiver VITE_API_URL, verificar se está em produção
+  if (typeof window !== 'undefined' && window.location) {
     const hostname = window.location.hostname;
-    // Se não for localhost, assumir que está em produção
-    if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
-      // FORÇAR uso de api.slothempresas.com.br em produção
+    console.log('🔍 Hostname detectado:', hostname);
+    
+    // Se não for localhost, SEMPRE usar api.slothempresas.com.br
+    if (hostname !== 'localhost' && hostname !== '127.0.0.1' && !hostname.includes('localhost')) {
       const apiUrl = 'https://api.slothempresas.com.br/api';
-      console.warn('⚠️ VITE_API_URL não configurada! Usando fallback de produção:', apiUrl);
+      console.warn('⚠️ VITE_API_URL não configurada! FORÇANDO uso de produção:', apiUrl);
       return apiUrl;
     }
   }
   
+  // TERCEIRO: Fallback para desenvolvimento local
   console.log('🔧 Usando API local: /api');
   return '/api';
 };
@@ -37,16 +42,24 @@ const api = axios.create({
 });
 
 // Verificar se baseURL está correto
-if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-  if (!baseURL.includes('api.slothempresas.com.br')) {
-    console.error('❌ ERRO: baseURL incorreto! Deveria ser api.slothempresas.com.br mas é:', baseURL);
+if (typeof window !== 'undefined' && window.location) {
+  const hostname = window.location.hostname;
+  if (hostname !== 'localhost' && hostname !== '127.0.0.1' && !hostname.includes('localhost')) {
+    if (!baseURL.includes('api.slothempresas.com.br')) {
+      console.error('❌ ERRO CRÍTICO: baseURL incorreto!');
+      console.error('   Hostname:', hostname);
+      console.error('   baseURL atual:', baseURL);
+      console.error('   baseURL esperado: https://api.slothempresas.com.br/api');
+    } else {
+      console.log('✅ baseURL correto para produção:', baseURL);
+    }
   }
 }
 
 // Log para debug - usar a mesma baseURL já calculada
 console.log('🔧 API Configurada:', {
-  VITE_API_URL: import.meta.env.VITE_API_URL,
-  hostname: typeof window !== 'undefined' ? window.location.hostname : 'N/A',
+  VITE_API_URL: import.meta.env.VITE_API_URL || '(não configurada)',
+  hostname: typeof window !== 'undefined' && window.location ? window.location.hostname : 'N/A',
   baseURL: baseURL,
   'URL completa exemplo': `${baseURL}/auth/employee`
 });
@@ -62,6 +75,7 @@ api.interceptors.response.use(
     console.error('❌ Erro na API:', {
       url: error.config?.url,
       baseURL: error.config?.baseURL,
+      'URL completa': error.config?.baseURL + error.config?.url,
       status: error.response?.status,
       message: error.message
     });
@@ -81,4 +95,3 @@ api.interceptors.response.use(
 );
 
 export default api;
-
