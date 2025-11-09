@@ -1,15 +1,20 @@
 # 🚀 GUIA COMPLETO: COMO INICIAR OS SERVIDORES
 
-## 📋 ESTRUTURA DO PROJETO
+## 📋 ESTRUTURA DO PROJETO (Atualizado em 09/11/2025)
 
-- **Backend**: `C:\server\` (Node.js/Express)
-- **Frontend**: `C:\client\` (React/Vite)
+- **Repositório Git**: `C:\server\` (raiz do projeto)
+- **Backend**: `C:\server\server\` (Node.js/Express)
+- **Frontend**: `C:\server\client\` (React/Vite)
+
+**⚠️ IMPORTANTE**: Após reorganização do repositório, os caminhos mudaram:
+- Backend agora está em `C:\server\server\` (não mais em `C:\server\`)
+- Frontend agora está em `C:\server\client\` (não mais em `C:\client\`)
 
 ## ✅ PRÉ-REQUISITOS
 
 ### 1. Arquivo `.env` no Backend
 
-O arquivo `.env` deve existir em `C:\server\.env` com as seguintes variáveis:
+O arquivo `.env` deve existir em `C:\server\server\.env` com as seguintes variáveis:
 
 ```env
 PORT=3000
@@ -27,13 +32,13 @@ Certifique-se de que as dependências estão instaladas:
 
 **Backend:**
 ```bash
-cd C:\server
+cd C:\server\server
 npm install
 ```
 
 **Frontend:**
 ```bash
-cd C:\client
+cd C:\server\client
 npm install
 ```
 
@@ -41,7 +46,7 @@ npm install
 
 ### Backend - Nodemon
 
-Arquivo `nodemon.json` criado em `C:\server\nodemon.json`:
+Arquivo `nodemon.json` criado em `C:\server\server\nodemon.json`:
 
 ```json
 {
@@ -60,7 +65,7 @@ Arquivo `nodemon.json` criado em `C:\server\nodemon.json`:
 
 ### Frontend - Vite HMR
 
-Arquivo `vite.config.js` em `C:\client\vite.config.js`:
+Arquivo `vite.config.js` em `C:\server\client\vite.config.js`:
 
 ```javascript
 import { defineConfig } from 'vite'
@@ -95,13 +100,15 @@ export default defineConfig({
 
 **Terminal 1 - Backend:**
 ```powershell
-cd C:\server
+cd C:\server\server
+npm install
 npm run dev
 ```
 
 **Terminal 2 - Frontend:**
 ```powershell
-cd C:\client
+cd C:\server\client
+npm install
 npm run dev
 ```
 
@@ -109,14 +116,14 @@ npm run dev
 
 **Backend:**
 ```powershell
-cd C:\server
-Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd C:\server; npm run dev" -WindowStyle Minimized
+cd C:\server\server
+Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd C:\server\server; npm run dev" -WindowStyle Minimized
 ```
 
 **Frontend:**
 ```powershell
-cd C:\client
-Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd C:\client; npm run dev" -WindowStyle Minimized
+cd C:\server\client
+Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd C:\server\client; npm run dev" -WindowStyle Minimized
 ```
 
 ### Método 3: Abrir Navegador Automaticamente
@@ -194,7 +201,7 @@ Stop-Process -Id <PID> -Force
 
 ### 1. Erro: "Variáveis de ambiente SUPABASE_URL e SUPABASE_SERVICE_KEY são obrigatórias"
 
-**Solução**: Verifique se o arquivo `.env` existe em `C:\server\.env` e contém as variáveis necessárias.
+**Solução**: Verifique se o arquivo `.env` existe em `C:\server\server\.env` e contém as variáveis necessárias.
 
 ### 2. Porta já em uso
 
@@ -237,14 +244,38 @@ Stop-Process -Id <PID> -Force
 
 ## 📚 ARQUIVOS IMPORTANTES
 
-- `server/.env` - Variáveis de ambiente (NÃO COMMITAR)
-- `server/nodemon.json` - Configuração do nodemon
-- `client/vite.config.js` - Configuração do Vite
-- `server/package.json` - Scripts e dependências do backend
-- `client/package.json` - Scripts e dependências do frontend
+- `C:\server\server\.env` - Variáveis de ambiente (NÃO COMMITAR)
+- `C:\server\server\nodemon.json` - Configuração do nodemon
+- `C:\server\client\vite.config.js` - Configuração do Vite
+- `C:\server\server\package.json` - Scripts e dependências do backend
+- `C:\server\client\package.json` - Scripts e dependências do frontend
+
+## 🔄 ATUALIZAÇÕES DE ESTRUTURA
+
+### Data: 09/11/2025 - Reorganização do Repositório
+
+**Mudanças importantes:**
+- ✅ Repositório reorganizado com subpastas `server/` e `client/`
+- ✅ Backend movido de `C:\server\` para `C:\server\server\`
+- ✅ Frontend movido de `C:\client\` para `C:\server\client\`
+- ✅ Todos os caminhos de comandos atualizados neste documento
+
+**Comandos atualizados:**
+```powershell
+# Backend
+cd C:\server\server
+npm install
+npm run dev
+
+# Frontend
+cd C:\server\client
+npm install
+npm run dev
+```
 
 ---
 
-**Última atualização**: 09/11/2025
+**Última atualização**: 09/11/2025  
+**Reorganização**: 09/11/2025 - Estrutura com subpastas
 
 
