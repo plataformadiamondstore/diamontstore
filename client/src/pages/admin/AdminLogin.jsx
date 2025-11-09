@@ -1,16 +1,28 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
-import Logo from '../../components/Logo';
 
 export default function AdminLogin() {
   const [usuario, setUsuario] = useState('');
   const [senha, setSenha] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { login } = useAuth();
+  const { user, login, loading: authLoading } = useAuth();
   const navigate = useNavigate();
+
+  // Redirecionar para home se já estiver logado
+  useEffect(() => {
+    if (!authLoading && user) {
+      if (user.tipo === 'master') {
+        navigate('/adm/dashboard');
+      } else if (user.tipo === 'gestor') {
+        navigate('/adm/gestor');
+      } else {
+        navigate('/produtos');
+      }
+    }
+  }, [user, authLoading, navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -44,11 +56,6 @@ export default function AdminLogin() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary-purple to-purple-800 flex flex-col p-4">
-      {/* Logo no topo esquerdo */}
-      <div className="absolute top-4 left-4">
-        <Logo />
-      </div>
-      
       <div className="flex-1 flex items-center justify-center">
         <div className="bg-white rounded-lg shadow-2xl p-8 w-full max-w-md">
         <div className="text-center mb-8">

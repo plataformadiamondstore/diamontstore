@@ -108,9 +108,11 @@ export default function Products() {
       <header className="bg-white shadow-sm sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex justify-between items-center">
-            <Logo />
+            <button onClick={() => navigate('/produtos')} className="cursor-pointer hover:opacity-80 transition-opacity">
+              <Logo />
+            </button>
             <div className="flex items-center gap-4">
-              <span className="text-gray-700">Olá, {user.nome}</span>
+              <span className="text-gray-700 text-lg font-bold">Olá, {user.nome}</span>
               <button
                 onClick={() => navigate('/carrinho')}
                 className="relative bg-primary-purple text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors"

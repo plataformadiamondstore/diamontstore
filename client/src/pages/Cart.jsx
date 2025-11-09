@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
+import Logo from '../components/Logo';
 
 export default function Cart() {
   const { user } = useAuth();
@@ -85,7 +86,9 @@ export default function Cart() {
       <header className="bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex justify-between items-center">
-            <h1 className="text-2xl font-bold text-primary-purple">Carrinho de Compras</h1>
+            <button onClick={() => navigate('/produtos')} className="cursor-pointer hover:opacity-80 transition-opacity">
+              <Logo />
+            </button>
             <button
               onClick={() => navigate('/produtos')}
               className="text-gray-700 hover:text-primary-purple"

@@ -7,7 +7,7 @@ import Logo from '../../components/Logo';
 export default function AdminDashboard() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState('empresas');
+  const [activeTab, setActiveTab] = useState('dashboard');
   const [activeCadastroSubmenu, setActiveCadastroSubmenu] = useState('produtos');
   const [empresas, setEmpresas] = useState([]);
   const [clubes, setClubes] = useState([]);
@@ -82,6 +82,13 @@ export default function AdminDashboard() {
   const [uploadsExpandidos, setUploadsExpandidos] = useState({});
   const [pedidos, setPedidos] = useState([]);
   const [pedidosExpandidos, setPedidosExpandidos] = useState({});
+  
+  // Filtros do dashboard
+  const [dashboardFilters, setDashboardFilters] = useState({
+    data_inicio: '',
+    data_fim: '',
+    empresa_id: ''
+  });
   const [filtroEmpresaPedidos, setFiltroEmpresaPedidos] = useState('');
   const [filtroDataInicio, setFiltroDataInicio] = useState('');
   const [filtroDataFim, setFiltroDataFim] = useState('');
@@ -642,6 +649,8 @@ export default function AdminDashboard() {
               .pedido:last-child { margin-bottom: 0; }
             }
             body { font-family: Arial, sans-serif; padding: 10px; font-size: 12px; }
+            .logo-container { text-align: center; margin-bottom: 20px; }
+            .logo-container img { max-height: 80px; max-width: 200px; }
             .pedido { margin-bottom: 20px; border: 1px solid #333; padding: 10px; max-width: 100%; }
             h1 { text-align: center; margin-bottom: 15px; font-size: 18px; }
             h2 { color: #6B46C1; border-bottom: 1px solid #6B46C1; padding-bottom: 5px; margin-bottom: 10px; font-size: 14px; }
@@ -655,6 +664,9 @@ export default function AdminDashboard() {
           </style>
         </head>
         <body>
+          <div class="logo-container">
+            <img src="/logo.png" alt="Logo" onerror="this.style.display='none'" />
+          </div>
           <h1>Impressão de Pedidos</h1>
           ${(filtroStatusPedidos || filtroEmpresaPedidos || filtroDataInicio || filtroDataFim) ? `
             <div style="text-align: center; margin-bottom: 10px; padding: 8px; background-color: #e0e0e0; border-radius: 3px; font-size: 11px;">
@@ -1177,13 +1189,11 @@ export default function AdminDashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <header className="bg-white shadow-sm">
+      <header className="bg-white shadow-sm relative">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex justify-between items-center">
-            <div className="flex items-center gap-4">
-              <Logo />
-              <h1 className="text-xl font-bold text-primary-purple">Painel Administrativo</h1>
-            </div>
+            <Logo />
+            <h1 className="text-xl font-bold text-primary-purple absolute left-1/2 transform -translate-x-1/2">PAINEL ADMINISTRATIVO</h1>
             <button
               onClick={logout}
               className="text-gray-700 hover:text-primary-purple"
@@ -1194,7 +1204,7 @@ export default function AdminDashboard() {
         </div>
       </header>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2">
         <div className="bg-white rounded-lg shadow-sm mb-6">
           <div className="flex border-b">
             {['dashboard', 'empresas', 'funcionarios', 'cadastros', 'produtos', 'pedidos'].map((tab) => {
@@ -1230,113 +1240,195 @@ export default function AdminDashboard() {
 
         {activeTab === 'dashboard' && (
           <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              {/* Card: Vendas Totais */}
-              <div className="bg-white rounded-lg shadow-sm p-6 border-l-4 border-blue-500">
-                <h3 className="text-sm font-medium text-gray-500 mb-2">Vendas Totais</h3>
-                <p className="text-3xl font-bold text-gray-900">
-                  R$ {(() => {
-                    if (!pedidos || pedidos.length === 0) return '0,00';
-                    const vendasTotais = pedidos
-                      .filter(p => p.status === 'aprovado')
-                      .reduce((sum, pedido) => {
-                        const totalPedido = pedido.pedido_itens?.reduce((s, item) => 
-                          s + (parseFloat(item.preco || 0) * (item.quantidade || 0)), 0) || 0;
-                        return sum + totalPedido;
-                      }, 0);
-                    return vendasTotais.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-                  })()}
-                </p>
-                <p className="text-xs text-gray-500 mt-2">
-                  {pedidos && pedidos.length > 0 ? pedidos.filter(p => p.status === 'aprovado').length : 0} pedidos aprovados
-                </p>
-              </div>
-
-              {/* Card: Total de Pedidos */}
-              <div className="bg-white rounded-lg shadow-sm p-6 border-l-4 border-green-500">
-                <h3 className="text-sm font-medium text-gray-500 mb-2">Total de Pedidos</h3>
-                <p className="text-3xl font-bold text-gray-900">{pedidos ? pedidos.length : 0}</p>
-                <div className="flex gap-4 mt-2 text-xs">
-                  <span className="text-green-600">
-                    {pedidos ? pedidos.filter(p => p.status === 'aprovado').length : 0} Aprovados
-                  </span>
-                  <span className="text-yellow-600">
-                    {pedidos ? pedidos.filter(p => p.status === 'pendente').length : 0} Pendentes
-                  </span>
-                  <span className="text-red-600">
-                    {pedidos ? pedidos.filter(p => p.status === 'rejeitado').length : 0} Rejeitados
-                  </span>
+            {/* Filtros do Dashboard */}
+            <div className="bg-white rounded-lg shadow-sm p-3 border border-gray-200">
+              <div className="flex flex-wrap items-end gap-3">
+                <div className="flex-1 min-w-[150px]">
+                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                    Data Início
+                  </label>
+                  <input
+                    type="date"
+                    value={dashboardFilters.data_inicio}
+                    onChange={(e) => setDashboardFilters(prev => ({ ...prev, data_inicio: e.target.value }))}
+                    className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-1 focus:ring-primary-purple focus:border-primary-purple"
+                  />
                 </div>
-              </div>
-
-              {/* Card: Total de Empresas */}
-              <div className="bg-white rounded-lg shadow-sm p-6 border-l-4 border-purple-500">
-                <h3 className="text-sm font-medium text-gray-500 mb-2">Total de Empresas</h3>
-                <p className="text-3xl font-bold text-gray-900">{empresas ? empresas.length : 0}</p>
-                <p className="text-xs text-gray-500 mt-2">
-                  {gestores ? gestores.length : 0} gestores cadastrados
-                </p>
-              </div>
-
-              {/* Card: Total de Funcionários */}
-              <div className="bg-white rounded-lg shadow-sm p-6 border-l-4 border-orange-500">
-                <h3 className="text-sm font-medium text-gray-500 mb-2">Total de Funcionários</h3>
-                <p className="text-3xl font-bold text-gray-900">
-                  {(() => {
-                    try {
-                      // Somar apenas o último upload de cada empresa
-                      if (!historicoUploads || !Array.isArray(historicoUploads) || historicoUploads.length === 0) {
-                        console.log('historicoUploads vazio ou inválido:', historicoUploads);
-                        return 0;
-                      }
-                      
-                      console.log('Total de uploads encontrados:', historicoUploads.length);
-                      console.log('Primeiro upload exemplo:', historicoUploads[0]);
-                      
-                      // Agrupar uploads por empresa e pegar o mais recente de cada uma
-                      const uploadsPorEmpresa = {};
-                      historicoUploads.forEach((upload, index) => {
-                        if (!upload) {
-                          console.warn(`Upload ${index} é null ou undefined`);
-                          return;
-                        }
-                        
-                        const empresaId = upload.empresa_id;
-                        if (!empresaId) {
-                          console.warn(`Upload ${index} não tem empresa_id:`, upload);
-                          return;
-                        }
-                        
-                        const uploadDate = upload.created_at ? new Date(upload.created_at) : new Date(0);
-                        const existingDate = uploadsPorEmpresa[empresaId]?.created_at 
-                          ? new Date(uploadsPorEmpresa[empresaId].created_at) 
-                          : new Date(0);
-                        
-                        if (!uploadsPorEmpresa[empresaId] || uploadDate > existingDate) {
-                          uploadsPorEmpresa[empresaId] = upload;
-                        }
-                      });
-                      
-                      console.log('Uploads por empresa:', Object.keys(uploadsPorEmpresa).length);
-                      
-                      // Somar a quantidade de funcionários do último upload de cada empresa
-                      const totalFuncionarios = Object.values(uploadsPorEmpresa).reduce((sum, upload) => {
-                        const quantidade = parseInt(upload?.quantidade_funcionarios) || 0;
-                        console.log(`Empresa ${upload?.empresa_id}: ${quantidade} funcionários`);
-                        return sum + quantidade;
-                      }, 0);
-                      
-                      console.log('Total de funcionários calculado:', totalFuncionarios);
-                      return totalFuncionarios;
-                    } catch (error) {
-                      console.error('Erro ao calcular total de funcionários:', error);
-                      return 0;
-                    }
-                  })()}
-                </p>
-                <p className="text-xs text-gray-500 mt-2">Funcionários cadastrados (último upload de cada empresa)</p>
+                <div className="flex-1 min-w-[150px]">
+                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                    Data Fim
+                  </label>
+                  <input
+                    type="date"
+                    value={dashboardFilters.data_fim}
+                    onChange={(e) => setDashboardFilters(prev => ({ ...prev, data_fim: e.target.value }))}
+                    className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-1 focus:ring-primary-purple focus:border-primary-purple"
+                  />
+                </div>
+                <div className="flex-1 min-w-[150px]">
+                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                    Empresa
+                  </label>
+                  <select
+                    value={dashboardFilters.empresa_id}
+                    onChange={(e) => setDashboardFilters(prev => ({ ...prev, empresa_id: e.target.value }))}
+                    className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-1 focus:ring-primary-purple focus:border-primary-purple"
+                  >
+                    <option value="">Todas as Empresas</option>
+                    {empresas.map((empresa) => (
+                      <option key={empresa.id} value={empresa.id}>
+                        {empresa.nome}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <button
+                  onClick={() => setDashboardFilters({ data_inicio: '', data_fim: '', empresa_id: '' })}
+                  className="px-3 py-1.5 text-xs text-gray-600 hover:text-primary-purple hover:bg-gray-50 rounded-md transition-colors"
+                >
+                  Limpar
+                </button>
               </div>
             </div>
+
+            {(() => {
+              // Aplicar filtros aos pedidos
+              let pedidosFiltrados = pedidos || [];
+              
+              if (dashboardFilters.data_inicio) {
+                const dataInicio = new Date(dashboardFilters.data_inicio);
+                dataInicio.setHours(0, 0, 0, 0);
+                pedidosFiltrados = pedidosFiltrados.filter(p => {
+                  const dataPedido = new Date(p.created_at);
+                  return dataPedido >= dataInicio;
+                });
+              }
+              
+              if (dashboardFilters.data_fim) {
+                const dataFim = new Date(dashboardFilters.data_fim);
+                dataFim.setHours(23, 59, 59, 999);
+                pedidosFiltrados = pedidosFiltrados.filter(p => {
+                  const dataPedido = new Date(p.created_at);
+                  return dataPedido <= dataFim;
+                });
+              }
+              
+              if (dashboardFilters.empresa_id) {
+                const empresaId = parseInt(dashboardFilters.empresa_id);
+                pedidosFiltrados = pedidosFiltrados.filter(p => {
+                  return p.funcionarios?.empresas?.id === empresaId || p.funcionarios?.empresa_id === empresaId;
+                });
+              }
+              
+              return (
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    {/* Card: Vendas Totais */}
+                    <div className="bg-white rounded-lg shadow-sm p-6 border-l-4 border-blue-500">
+                      <h3 className="text-sm font-medium text-gray-500 mb-2">Vendas Totais</h3>
+                      <p className="text-3xl font-bold text-gray-900">
+                        R$ {(() => {
+                          if (pedidosFiltrados.length === 0) return '0,00';
+                          const vendasTotais = pedidosFiltrados
+                            .filter(p => p.status === 'aprovado')
+                            .reduce((sum, pedido) => {
+                              const totalPedido = pedido.pedido_itens?.reduce((s, item) => 
+                                s + (parseFloat(item.preco || 0) * (item.quantidade || 0)), 0) || 0;
+                              return sum + totalPedido;
+                            }, 0);
+                          return vendasTotais.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+                        })()}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-2">
+                        {pedidosFiltrados.filter(p => p.status === 'aprovado').length} pedidos aprovados
+                      </p>
+                    </div>
+
+                    {/* Card: Total de Pedidos */}
+                    <div className="bg-white rounded-lg shadow-sm p-6 border-l-4 border-green-500">
+                      <h3 className="text-sm font-medium text-gray-500 mb-2">Total de Pedidos</h3>
+                      <p className="text-3xl font-bold text-gray-900">{pedidosFiltrados.length}</p>
+                      <div className="flex gap-4 mt-2 text-xs">
+                        <span className="text-green-600">
+                          {pedidosFiltrados.filter(p => p.status === 'aprovado').length} Aprovados
+                        </span>
+                        <span className="text-yellow-600">
+                          {pedidosFiltrados.filter(p => p.status === 'pendente').length} Pendentes
+                        </span>
+                        <span className="text-red-600">
+                          {pedidosFiltrados.filter(p => p.status === 'rejeitado').length} Rejeitados
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Card: Total de Empresas */}
+                    <div className="bg-white rounded-lg shadow-sm p-6 border-l-4 border-purple-500">
+                      <h3 className="text-sm font-medium text-gray-500 mb-2">Total de Empresas</h3>
+                      <p className="text-3xl font-bold text-gray-900">{empresas ? empresas.length : 0}</p>
+                      <p className="text-xs text-gray-500 mt-2">
+                        {gestores ? gestores.length : 0} gestores cadastrados
+                      </p>
+                    </div>
+
+                    {/* Card: Total de Funcionários */}
+                    <div className="bg-white rounded-lg shadow-sm p-6 border-l-4 border-orange-500">
+                      <h3 className="text-sm font-medium text-gray-500 mb-2">Total de Funcionários</h3>
+                      <p className="text-3xl font-bold text-gray-900">
+                        {(() => {
+                          try {
+                            // Somar apenas o último upload de cada empresa
+                            if (!historicoUploads || !Array.isArray(historicoUploads) || historicoUploads.length === 0) {
+                              console.log('historicoUploads vazio ou inválido:', historicoUploads);
+                              return 0;
+                            }
+                            
+                            console.log('Total de uploads encontrados:', historicoUploads.length);
+                            console.log('Primeiro upload exemplo:', historicoUploads[0]);
+                            
+                            // Agrupar uploads por empresa e pegar o mais recente de cada uma
+                            const uploadsPorEmpresa = {};
+                            historicoUploads.forEach((upload, index) => {
+                              if (!upload) {
+                                console.warn(`Upload ${index} é null ou undefined`);
+                                return;
+                              }
+                              
+                              const empresaId = upload.empresa_id;
+                              if (!empresaId) {
+                                console.warn(`Upload ${index} não tem empresa_id:`, upload);
+                                return;
+                              }
+                              
+                              const uploadDate = upload.created_at ? new Date(upload.created_at) : new Date(0);
+                              const existingDate = uploadsPorEmpresa[empresaId]?.created_at 
+                                ? new Date(uploadsPorEmpresa[empresaId].created_at) 
+                                : new Date(0);
+                              
+                              if (!uploadsPorEmpresa[empresaId] || uploadDate > existingDate) {
+                                uploadsPorEmpresa[empresaId] = upload;
+                              }
+                            });
+                            
+                            console.log('Uploads por empresa:', Object.keys(uploadsPorEmpresa).length);
+                            
+                            // Somar a quantidade de funcionários do último upload de cada empresa
+                            const totalFuncionarios = Object.values(uploadsPorEmpresa).reduce((sum, upload) => {
+                              const quantidade = parseInt(upload?.quantidade_funcionarios) || 0;
+                              console.log(`Empresa ${upload?.empresa_id}: ${quantidade} funcionários`);
+                              return sum + quantidade;
+                            }, 0);
+                            
+                            console.log('Total de funcionários calculado:', totalFuncionarios);
+                            return totalFuncionarios;
+                          } catch (error) {
+                            console.error('Erro ao calcular total de funcionários:', error);
+                            return 0;
+                          }
+                        })()}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-2">Funcionários cadastrados (último upload de cada empresa)</p>
+                    </div>
+                  </div>
 
             {/* Vendas por Empresa */}
             <div className="bg-white rounded-lg shadow-sm p-6">
@@ -1374,6 +1466,31 @@ export default function AdminDashboard() {
                               </td>
                             </tr>
                           );
+                        }
+                        
+                        // Aplicar filtros aos pedidos para a tabela
+                        let pedidosParaTabela = pedidos;
+                        if (dashboardFilters.data_inicio) {
+                          const dataInicio = new Date(dashboardFilters.data_inicio);
+                          dataInicio.setHours(0, 0, 0, 0);
+                          pedidosParaTabela = pedidosParaTabela.filter(p => {
+                            const dataPedido = new Date(p.created_at);
+                            return dataPedido >= dataInicio;
+                          });
+                        }
+                        if (dashboardFilters.data_fim) {
+                          const dataFim = new Date(dashboardFilters.data_fim);
+                          dataFim.setHours(23, 59, 59, 999);
+                          pedidosParaTabela = pedidosParaTabela.filter(p => {
+                            const dataPedido = new Date(p.created_at);
+                            return dataPedido <= dataFim;
+                          });
+                        }
+                        if (dashboardFilters.empresa_id) {
+                          const empresaId = parseInt(dashboardFilters.empresa_id);
+                          pedidosParaTabela = pedidosParaTabela.filter(p => {
+                            return p.funcionarios?.empresas?.id === empresaId || p.funcionarios?.empresa_id === empresaId;
+                          });
                         }
                         
                         const vendasPorEmpresa = {};
@@ -1425,7 +1542,7 @@ export default function AdminDashboard() {
                         console.log('Empresas mapeadas:', Object.keys(vendasPorEmpresa));
                         console.log('Empresas por cadastro:', empresaPorCadastro);
 
-                        pedidos.forEach(pedido => {
+                        pedidosParaTabela.forEach(pedido => {
                           try {
                             if (pedido && pedido.status === 'aprovado') {
                               // Tentar múltiplas formas de obter o empresa_id
@@ -1506,7 +1623,7 @@ export default function AdminDashboard() {
 
                         if (empresasOrdenadas.length === 0) {
                           // Verificar se há pedidos aprovados mas não estão sendo associados às empresas
-                          const pedidosAprovados = pedidos.filter(p => p && p.status === 'aprovado');
+                          const pedidosAprovados = pedidosParaTabela.filter(p => p && p.status === 'aprovado');
                           console.log('Pedidos aprovados encontrados:', pedidosAprovados.length);
                           if (pedidosAprovados.length > 0) {
                             console.log('Primeiro pedido aprovado:', pedidosAprovados[0]);
@@ -1557,7 +1674,10 @@ export default function AdminDashboard() {
                 </table>
               </div>
             </div>
-          </div>
+            </>
+          );
+        })()}
+        </div>
         )}
 
         {activeTab === 'empresas' && (
@@ -1923,57 +2043,63 @@ export default function AdminDashboard() {
             <h2 className="text-2xl font-bold mb-6">Produtos Cadastrados</h2>
             
             {/* Filtros de Marca e Categoria */}
-            <div className="mb-6 flex items-center gap-4 flex-wrap">
-              <div className="flex items-center gap-2">
-                <label className="text-sm font-medium text-gray-700">Categoria:</label>
-                <select
-                  value={filtroCategoriaProdutos}
-                  onChange={(e) => {
-                    setFiltroCategoriaProdutos(e.target.value);
-                    setPaginaProdutos(1); // Resetar para primeira página ao mudar filtro
-                  }}
-                  className="px-4 py-2 border border-gray-300 rounded-lg bg-white min-w-[200px]"
-                >
-                  <option value="">Todas as Categorias</option>
-                  {categorias.map((categoria) => (
-                    <option key={categoria.id} value={categoria.nome}>
-                      {categoria.nome}
-                    </option>
-                  ))}
-                </select>
+            <div className="mb-6 bg-white rounded-lg shadow-sm p-3 border border-gray-200">
+              <div className="flex flex-wrap items-end gap-3">
+                <div className="flex-1 min-w-[150px]">
+                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                    Categoria
+                  </label>
+                  <select
+                    value={filtroCategoriaProdutos}
+                    onChange={(e) => {
+                      setFiltroCategoriaProdutos(e.target.value);
+                      setPaginaProdutos(1);
+                    }}
+                    className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-1 focus:ring-primary-purple focus:border-primary-purple"
+                  >
+                    <option value="">Todas as Categorias</option>
+                    {categorias.map((categoria) => (
+                      <option key={categoria.id} value={categoria.nome}>
+                        {categoria.nome}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                
+                <div className="flex-1 min-w-[150px]">
+                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                    Marca
+                  </label>
+                  <select
+                    value={filtroMarcaProdutos}
+                    onChange={(e) => {
+                      setFiltroMarcaProdutos(e.target.value);
+                      setPaginaProdutos(1);
+                    }}
+                    className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-1 focus:ring-primary-purple focus:border-primary-purple"
+                  >
+                    <option value="">Todas as Marcas</option>
+                    {marcas.map((marca) => (
+                      <option key={marca.id} value={marca.nome}>
+                        {marca.nome}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                
+                {(filtroCategoriaProdutos || filtroMarcaProdutos) && (
+                  <button
+                    onClick={() => {
+                      setFiltroCategoriaProdutos('');
+                      setFiltroMarcaProdutos('');
+                      setPaginaProdutos(1);
+                    }}
+                    className="px-3 py-1.5 text-xs text-gray-600 hover:text-primary-purple hover:bg-gray-50 rounded-md transition-colors"
+                  >
+                    Limpar
+                  </button>
+                )}
               </div>
-              
-              <div className="flex items-center gap-2">
-                <label className="text-sm font-medium text-gray-700">Marca:</label>
-                <select
-                  value={filtroMarcaProdutos}
-                  onChange={(e) => {
-                    setFiltroMarcaProdutos(e.target.value);
-                    setPaginaProdutos(1); // Resetar para primeira página ao mudar filtro
-                  }}
-                  className="px-4 py-2 border border-gray-300 rounded-lg bg-white min-w-[200px]"
-                >
-                  <option value="">Todas as Marcas</option>
-                  {marcas.map((marca) => (
-                    <option key={marca.id} value={marca.nome}>
-                      {marca.nome}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              
-              {(filtroCategoriaProdutos || filtroMarcaProdutos) && (
-                <button
-                  onClick={() => {
-                    setFiltroCategoriaProdutos('');
-                    setFiltroMarcaProdutos('');
-                    setPaginaProdutos(1);
-                  }}
-                  className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 underline"
-                >
-                  Limpar Filtros
-                </button>
-              )}
             </div>
             
             {/* Cálculo de paginação: 10 linhas x 3 produtos = 30 produtos por página */}
@@ -2968,16 +3094,18 @@ export default function AdminDashboard() {
 
         {activeTab === 'pedidos' && (
           <div className="space-y-6">
-            <div className="bg-white rounded-lg shadow-sm p-6">
-              <div className="flex justify-between items-center mb-4 flex-wrap gap-4">
-                <h2 className="text-xl font-bold">Pedidos</h2>
-                <div className="flex items-center gap-3 flex-wrap">
-                  <div className="flex items-center gap-2">
-                    <label className="text-sm font-medium text-gray-700">Status:</label>
+            <div>
+              <h2 className="text-xl font-bold mb-3">Pedidos</h2>
+              <div className="bg-white rounded-lg shadow-sm p-3 border border-gray-200 mb-4">
+                <div className="flex flex-wrap items-end gap-3">
+                  <div className="flex-1 min-w-[150px]">
+                    <label className="block text-xs font-medium text-gray-600 mb-1">
+                      Status
+                    </label>
                     <select
                       value={filtroStatusPedidos}
                       onChange={(e) => setFiltroStatusPedidos(e.target.value)}
-                      className="px-4 py-2 border border-gray-300 rounded-lg bg-white text-sm"
+                      className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-1 focus:ring-primary-purple focus:border-primary-purple"
                     >
                       <option value="">Todos os Status</option>
                       <option value="pendente">Pendentes de Aprovação</option>
@@ -2985,52 +3113,77 @@ export default function AdminDashboard() {
                       <option value="rejeitado">Rejeitados</option>
                     </select>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <label className="text-sm font-medium text-gray-700">De:</label>
+                  <div className="flex-1 min-w-[150px]">
+                    <label className="block text-xs font-medium text-gray-600 mb-1">
+                      Data Início
+                    </label>
                     <input
                       type="date"
                       value={filtroDataInicio}
                       onChange={(e) => setFiltroDataInicio(e.target.value)}
-                      className="px-3 py-2 border border-gray-300 rounded-lg bg-white text-sm"
+                      className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-1 focus:ring-primary-purple focus:border-primary-purple"
                     />
                   </div>
-                  <div className="flex items-center gap-2">
-                    <label className="text-sm font-medium text-gray-700">Até:</label>
+                  <div className="flex-1 min-w-[150px]">
+                    <label className="block text-xs font-medium text-gray-600 mb-1">
+                      Data Fim
+                    </label>
                     <input
                       type="date"
                       value={filtroDataFim}
                       onChange={(e) => setFiltroDataFim(e.target.value)}
                       min={filtroDataInicio || undefined}
-                      className="px-3 py-2 border border-gray-300 rounded-lg bg-white text-sm"
+                      className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-1 focus:ring-primary-purple focus:border-primary-purple"
                     />
                   </div>
-                  <select
-                    value={filtroEmpresaPedidos}
-                    onChange={(e) => setFiltroEmpresaPedidos(e.target.value)}
-                    className="px-4 py-2 border border-gray-300 rounded-lg bg-white"
-                  >
-                    <option value="">Todas as Empresas</option>
-                    {empresas.map((empresa) => (
-                      <option key={empresa.id} value={empresa.id}>
-                        {empresa.nome}
-                      </option>
-                    ))}
-                  </select>
-                  {pedidos.length > 0 && (
-                    <button
-                      onClick={handleImprimirPorProduto}
-                      className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors flex items-center gap-2"
+                  <div className="flex-1 min-w-[150px]">
+                    <label className="block text-xs font-medium text-gray-600 mb-1">
+                      Empresa
+                    </label>
+                    <select
+                      value={filtroEmpresaPedidos}
+                      onChange={(e) => setFiltroEmpresaPedidos(e.target.value)}
+                      className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-1 focus:ring-primary-purple focus:border-primary-purple"
                     >
+                      <option value="">Todas as Empresas</option>
+                      {empresas.map((empresa) => (
+                        <option key={empresa.id} value={empresa.id}>
+                          {empresa.nome}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  {(filtroStatusPedidos || filtroDataInicio || filtroDataFim || filtroEmpresaPedidos) && (
+                    <button
+                      onClick={() => {
+                        setFiltroStatusPedidos('');
+                        setFiltroDataInicio('');
+                        setFiltroDataFim('');
+                        setFiltroEmpresaPedidos('');
+                      }}
+                      className="px-3 py-1.5 text-xs text-gray-600 hover:text-primary-purple hover:bg-gray-50 rounded-md transition-colors"
+                    >
+                      Limpar
+                    </button>
+                  )}
+                </div>
+              </div>
+              {pedidos.length > 0 && (
+                <div className="mb-4">
+                  <button
+                    onClick={handleImprimirPorProduto}
+                    className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors flex items-center gap-2"
+                  >
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
                       </svg>
                       Imprimir Pedidos
                     </button>
-                  )}
                 </div>
-              </div>
+              )}
+            </div>
               
-              {pedidos.length === 0 ? (
+            {pedidos.length === 0 ? (
                 <p className="text-gray-500 text-center py-8">Nenhum pedido encontrado.</p>
               ) : (
                 (() => {
@@ -3321,7 +3474,6 @@ export default function AdminDashboard() {
                   );
                 })()
               )}
-            </div>
           </div>
         )}
       </div>
