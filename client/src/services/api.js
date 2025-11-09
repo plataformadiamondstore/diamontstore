@@ -1,32 +1,41 @@
 import axios from 'axios';
 
-// 🔥 FORÇA URL CORRETA - SEM LÓGICA COMPLEXA
+// 🔥 FORÇA URL CORRETA - DETECÇÃO PRIORITÁRIA DE PRODUÇÃO
 // Se estiver em produção (não localhost), SEMPRE usar api.slothempresas.com.br
 const getBaseURL = () => {
-  // Verificar hostname IMEDIATAMENTE
-  const isProduction = typeof window !== 'undefined' && 
-                       window.location && 
-                       window.location.hostname !== 'localhost' && 
-                       window.location.hostname !== '127.0.0.1' && 
-                       !window.location.hostname.includes('localhost');
+  // Verificar hostname PRIMEIRO - mais confiável que variável de ambiente
+  if (typeof window !== 'undefined' && window.location) {
+    const hostname = window.location.hostname;
+    const isProduction = hostname !== 'localhost' && 
+                         hostname !== '127.0.0.1' && 
+                         !hostname.includes('localhost');
+    
+    // Se estiver em produção, FORÇAR api.slothempresas.com.br (IGNORAR VITE_API_URL se estiver errado)
+    if (isProduction) {
+      const envUrl = import.meta.env.VITE_API_URL;
+      // Se VITE_API_URL estiver configurada E for a URL correta, usar ela
+      if (envUrl && envUrl.trim() !== '' && envUrl.includes('api.slothempresas.com.br')) {
+        const finalUrl = envUrl.endsWith('/api') ? envUrl : `${envUrl}/api`;
+        console.log('✅ Usando VITE_API_URL (correta):', finalUrl);
+        return finalUrl;
+      }
+      // Caso contrário, FORÇAR URL correta independente de VITE_API_URL
+      const apiUrl = 'https://api.slothempresas.com.br/api';
+      console.log('🔥 PRODUÇÃO DETECTADA - FORÇANDO URL CORRETA:', apiUrl);
+      console.log('   Hostname:', hostname);
+      console.log('   VITE_API_URL:', envUrl || '(não configurada ou incorreta)');
+      return apiUrl;
+    }
+  }
   
-  // Se VITE_API_URL estiver configurada, usar ela
+  // Desenvolvimento local - usar VITE_API_URL se configurada, senão /api
   const envUrl = import.meta.env.VITE_API_URL;
   if (envUrl && envUrl.trim() !== '') {
     const finalUrl = envUrl.endsWith('/api') ? envUrl : `${envUrl}/api`;
-    console.log('✅ Usando VITE_API_URL:', finalUrl);
+    console.log('✅ Desenvolvimento - Usando VITE_API_URL:', finalUrl);
     return finalUrl;
   }
   
-  // Se estiver em produção, FORÇAR api.slothempresas.com.br
-  if (isProduction) {
-    const apiUrl = 'https://api.slothempresas.com.br/api';
-    console.log('🔥 PRODUÇÃO DETECTADA - FORÇANDO:', apiUrl);
-    console.log('   Hostname:', window.location.hostname);
-    return apiUrl;
-  }
-  
-  // Desenvolvimento local
   console.log('🔧 Desenvolvimento local - usando /api');
   return '/api';
 };
@@ -85,17 +94,22 @@ console.log('🔧 API Configurada:', {
 // Interceptor para REQUISIÇÕES - FORÇAR URL CORRETA
 api.interceptors.request.use(
   (config) => {
-    // Se estiver em produção e baseURL estiver errado, CORRIGIR
+    // Se estiver em produção, SEMPRE FORÇAR URL CORRETA
     if (typeof window !== 'undefined' && window.location) {
       const hostname = window.location.hostname;
       const isProduction = hostname !== 'localhost' && hostname !== '127.0.0.1' && !hostname.includes('localhost');
       
       if (isProduction) {
-        // Se a URL completa não contém api.slothempresas.com.br, CORRIGIR
-        const fullUrl = (config.baseURL || '') + (config.url || '');
-        if (!fullUrl.includes('api.slothempresas.com.br') && !fullUrl.startsWith('/api')) {
+        // Se baseURL for relativo (/api) ou não contém api.slothempresas.com.br, FORÇAR CORREÇÃO
+        const currentBaseURL = config.baseURL || '';
+        const isRelative = currentBaseURL.startsWith('/') || currentBaseURL === '';
+        const isWrongDomain = !currentBaseURL.includes('api.slothempresas.com.br');
+        
+        if (isRelative || isWrongDomain) {
           console.error('🚨 INTERCEPTOR: URL incorreta detectada!');
-          console.error('   URL incorreta:', fullUrl);
+          console.error('   Hostname:', hostname);
+          console.error('   baseURL incorreto:', currentBaseURL);
+          console.error('   É relativo?', isRelative);
           config.baseURL = 'https://api.slothempresas.com.br/api';
           console.error('   ✅ baseURL CORRIGIDO para:', config.baseURL);
         }
