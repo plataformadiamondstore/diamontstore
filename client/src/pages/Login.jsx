@@ -79,13 +79,8 @@ export default function Login() {
           alt="Sloth Partners Banner" 
           className="w-full h-auto object-contain max-h-[200px] sm:max-h-[250px] md:max-h-[300px] lg:max-h-[350px]"
           onError={(e) => {
-            console.error('Erro ao carregar banner. Tentando URL alternativa...');
-            // Tentar URL alternativa
-            e.target.src = './banners/banner-sloth-partners.jpeg';
-            e.target.onerror = () => {
-              console.error('Banner não encontrado em nenhum caminho');
-              e.target.style.display = 'none';
-            };
+            console.error('Erro ao carregar banner:', e.target.src);
+            // Não esconder o banner, apenas logar o erro
           }}
           onLoad={() => console.log('Banner carregado com sucesso')}
         />

@@ -15,10 +15,13 @@ const getBaseURL = () => {
     // Se não for localhost, assumir que está em produção
     if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
       // SEMPRE usar api.slothempresas.com.br em produção
-      return 'https://api.slothempresas.com.br/api';
+      const apiUrl = 'https://api.slothempresas.com.br/api';
+      console.log('🔧 Usando API de produção:', apiUrl);
+      return apiUrl;
     }
   }
   
+  console.log('🔧 Usando API local: /api');
   return '/api';
 };
 
