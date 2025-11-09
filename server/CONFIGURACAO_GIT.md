@@ -134,11 +134,92 @@ git push origin master
    git push -u origin master
    ```
 
+## 📁 ESTRUTURA DO REPOSITÓRIO (Reorganizado em 09/11/2025)
+
+O repositório foi reorganizado com a seguinte estrutura:
+
+```
+.
+├── server/          # Backend (Node.js/Express)
+│   ├── routes/      # Rotas da API
+│   ├── scripts/     # Scripts de configuração
+│   ├── package.json
+│   └── ...
+│
+├── client/          # Frontend (React/Vite)
+│   ├── src/         # Código fonte React
+│   ├── public/      # Arquivos estáticos
+│   ├── package.json
+│   └── ...
+│
+├── .gitignore      # Gitignore unificado na raiz
+├── README.md        # Documentação do projeto
+└── ...
+```
+
+### ⚠️ IMPORTANTE: Localização do Repositório Git
+
+- **Repositório Git principal**: `C:\server\` (raiz do projeto)
+- **Backend**: `C:\server\server\` (subpasta)
+- **Frontend**: `C:\server\client\` (subpasta)
+- **C:\client\**: Pode continuar como workspace local, mas o Git está em `C:\server\`
+
+### 🔄 Como Trabalhar com a Nova Estrutura
+
+#### Para fazer commits e push:
+
+```bash
+# Sempre trabalhar a partir da raiz do repositório
+cd C:\server
+
+# Verificar status
+git status
+
+# Adicionar alterações
+git add .
+
+# Fazer commit
+git commit -m "Descrição das alterações"
+
+# Fazer push
+git push origin master
+```
+
+#### Para trabalhar no código:
+
+```bash
+# Backend
+cd C:\server\server
+# ou continuar usando C:\server\server como workspace
+
+# Frontend
+cd C:\server\client
+# ou continuar usando C:\client como workspace (mas commits vêm de C:\server)
+```
+
+### 📝 Histórico de Reorganização
+
+**Data**: 09/11/2025**
+
+- ✅ Repositório reorganizado com subpastas `server/` e `client/`
+- ✅ Todo histórico preservado (commits do server e client mantidos)
+- ✅ `.gitignore` unificado na raiz
+- ✅ `README.md` criado na raiz
+- ✅ Estrutura sincronizada com repositório remoto
+
+**Commits importantes:**
+- `210f5a2` - Reorganização: estrutura com subpastas server/ e client/
+- `1ff90e5` - Merge: reorganização da estrutura do projeto
+- `942ebf0` - Merge: integração com remoto e reorganização completa
+- `c0b437f` - Correção: estrutura duplicada e .gitignore unificado
+- `d66312c` - Limpeza: remove package.json da raiz
+
 ## 📝 NOTAS IMPORTANTES
 
 - ⚠️ **NUNCA** fazer push para repositórios do nirvana ou qualquer outro projeto
 - ⚠️ **SEMPRE** verificar o remote antes de fazer push
 - ⚠️ **SEMPRE** usar as credenciais `slothempresas` para este projeto
+- ⚠️ **SEMPRE** trabalhar a partir de `C:\server\` para commits e push
 - ⚠️ Este documento deve ser consultado sempre que houver dúvidas sobre a configuração do Git
 
 ## 🔗 LINKS ÚTEIS
@@ -150,6 +231,7 @@ git push origin master
 
 **Última atualização**: 09/11/2025  
 **Projeto**: Sloth Empresas  
-**Mantido por**: slothempresas
+**Mantido por**: slothempresas  
+**Reorganização**: 09/11/2025 - Estrutura com subpastas server/ e client/
 
 
