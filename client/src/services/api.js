@@ -3,10 +3,24 @@ import axios from 'axios';
 // Configurar baseURL: se VITE_API_URL estiver definido, usar ele + /api, senão usar /api
 const getBaseURL = () => {
   const envUrl = import.meta.env.VITE_API_URL;
+  
   if (envUrl) {
     // Se a URL já termina com /api, não adicionar novamente
     return envUrl.endsWith('/api') ? envUrl : `${envUrl}/api`;
   }
+  
+  // Fallback: se estiver em produção (não localhost), usar o domínio da API
+  if (typeof window !== 'undefined') {
+    const hostname = window.location.hostname;
+    // Se não for localhost, assumir que está em produção
+    if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
+      // Se o domínio atual for slothempresas.com.br, usar api.slothempresas.com.br
+      if (hostname === 'slothempresas.com.br' || hostname.includes('slothempresas')) {
+        return 'https://api.slothempresas.com.br/api';
+      }
+    }
+  }
+  
   return '/api';
 };
 
