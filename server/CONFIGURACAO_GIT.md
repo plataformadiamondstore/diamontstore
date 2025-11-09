@@ -199,7 +199,7 @@ cd C:\server\client
 
 ### 📝 Histórico de Reorganização
 
-**Data**: 09/11/2025**
+**Data**: 09/11/2025
 
 - ✅ Repositório reorganizado com subpastas `server/` e `client/`
 - ✅ Todo histórico preservado (commits do server e client mantidos)
