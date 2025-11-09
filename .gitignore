@@ -1,11 +1,13 @@
 # Dependencies
 node_modules/
 **/node_modules/
+package-lock.json
 
 # Environment variables
 .env
 **/.env
 .env.local
+.env.production
 
 # Uploads and generated files
 uploads/
@@ -31,3 +33,6 @@ build/
 # OS
 .DS_Store
 Thumbs.db
+
+# Logs
+npm-debug.log*
