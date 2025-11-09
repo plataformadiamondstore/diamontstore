@@ -59,3 +59,4 @@ item.produtos.produto_imagens  // ← ANINHADO, pode não estar vindo!
 Forçar o uso do método alternativo que busca as imagens separadamente, garantindo que sempre funcione.
 
 
+
