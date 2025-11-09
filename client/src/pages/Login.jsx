@@ -73,14 +73,19 @@ export default function Login() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-100 to-gray-200 flex flex-col">
       {/* Banner na parte superior - responsivo */}
-      <div className="w-full flex justify-center overflow-hidden">
+      <div className="w-full flex justify-center overflow-hidden bg-gray-100">
         <img 
           src="/banners/banner-sloth-partners.jpeg" 
           alt="Sloth Partners Banner" 
           className="w-full h-auto object-contain max-h-[200px] sm:max-h-[250px] md:max-h-[300px] lg:max-h-[350px]"
           onError={(e) => {
-            console.error('Erro ao carregar banner:', e);
-            e.target.style.display = 'none';
+            console.error('Erro ao carregar banner. Tentando URL alternativa...');
+            // Tentar URL alternativa
+            e.target.src = './banners/banner-sloth-partners.jpeg';
+            e.target.onerror = () => {
+              console.error('Banner não encontrado em nenhum caminho');
+              e.target.style.display = 'none';
+            };
           }}
           onLoad={() => console.log('Banner carregado com sucesso')}
         />

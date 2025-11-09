@@ -14,10 +14,8 @@ const getBaseURL = () => {
     const hostname = window.location.hostname;
     // Se não for localhost, assumir que está em produção
     if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
-      // Se o domínio atual for slothempresas.com.br, usar api.slothempresas.com.br
-      if (hostname === 'slothempresas.com.br' || hostname.includes('slothempresas')) {
-        return 'https://api.slothempresas.com.br/api';
-      }
+      // SEMPRE usar api.slothempresas.com.br em produção
+      return 'https://api.slothempresas.com.br/api';
     }
   }
   
