@@ -33,10 +33,13 @@ const api = axios.create({
   },
 });
 
-// Log para debug
-console.log('API Configurada:', {
+// Log para debug - FORÇAR URL DE PRODUÇÃO
+const finalBaseURL = getBaseURL();
+console.log('🔧 API Configurada:', {
   VITE_API_URL: import.meta.env.VITE_API_URL,
-  baseURL: getBaseURL()
+  hostname: typeof window !== 'undefined' ? window.location.hostname : 'N/A',
+  baseURL: finalBaseURL,
+  'URL completa exemplo': `${finalBaseURL}/auth/employee`
 });
 
 // Interceptor para tratar respostas

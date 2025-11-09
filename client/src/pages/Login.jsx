@@ -144,6 +144,8 @@ export default function Login() {
             {loading ? 'Entrando...' : 'Entrar'}
           </button>
         </form>
+        
+        {/* NÃO ADICIONAR BOTÃO DE ACESSO ADMINISTRATIVO AQUI */}
         </div>
       </div>
     </div>
