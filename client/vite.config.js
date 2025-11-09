@@ -31,6 +31,14 @@ export default defineConfig({
         },
       }
     }
+  },
+  build: {
+    // Garantir que as variáveis de ambiente sejam substituídas corretamente
+    rollupOptions: {
+      output: {
+        manualChunks: undefined
+      }
+    }
   }
 })
 
