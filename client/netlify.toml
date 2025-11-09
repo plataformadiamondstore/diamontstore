@@ -1,7 +1,9 @@
 [build]
-  # IMPORTANTE: Se o Netlify está configurado na raiz do repo, usar:
+  # Base directory - Netlify vai executar comandos dentro de client/
   base = "client"
+  # Build command - limpa tudo e faz rebuild completo
   command = "npm cache clean --force && rm -rf node_modules dist && npm install && npm run build"
+  # Publish directory - relativo ao base, então "dist" significa "client/dist"
   publish = "dist"
 
 [build.environment]
