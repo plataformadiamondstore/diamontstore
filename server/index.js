@@ -43,8 +43,13 @@ app.use((req, res, next) => {
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Servir imagens estáticas
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+// Servir imagens estáticas - verificar ambas as pastas (raiz e server)
+const uploadsPathServer = path.join(__dirname, 'uploads');
+const uploadsPathRoot = path.join(__dirname, '..', 'uploads');
+
+// Servir primeiro da pasta server, depois da raiz (fallback)
+app.use('/uploads', express.static(uploadsPathServer));
+app.use('/uploads', express.static(uploadsPathRoot));
 
 // Supabase Client
 export const supabase = createClient(

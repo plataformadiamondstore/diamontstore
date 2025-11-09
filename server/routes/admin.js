@@ -1,14 +1,19 @@
 import express from 'express';
 import multer from 'multer';
 import xlsx from 'xlsx';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { supabase } from '../index.js';
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 const router = express.Router();
-const upload = multer({ dest: 'uploads/' });
+const upload = multer({ dest: path.join(__dirname, '../uploads/') });
 
 // Configurar multer para múltiplas imagens (até 5)
 const uploadImages = multer({
-  dest: 'uploads/produtos/',
+  dest: path.join(__dirname, '../uploads/produtos/'),
   limits: {
     fileSize: 5 * 1024 * 1024, // 5MB por imagem
     files: 5 // máximo 5 imagens
@@ -952,7 +957,7 @@ router.post('/produtos', uploadImages.array('imagens', 5), async (req, res) => {
     }
 
     // Buscar imagens do produto separadamente
-    const { data: imagensData, error: imagensFetchError } = await supabase
+    const { data: imagensBuscadas, error: imagensFetchError } = await supabase
       .from('produto_imagens')
       .select('*')
       .eq('produto_id', produto.id)
@@ -966,7 +971,7 @@ router.post('/produtos', uploadImages.array('imagens', 5), async (req, res) => {
     // Combinar produto com imagens e garantir serialização
     const produtoCompleto = {
       ...produtoData[0],
-      produto_imagens: imagensData || []
+      produto_imagens: imagensBuscadas || []
     };
 
     // Serializar para garantir que é JSON válido
