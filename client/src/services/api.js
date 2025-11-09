@@ -1,52 +1,52 @@
 import axios from 'axios';
 
-// Configurar baseURL: se VITE_API_URL estiver definido, usar ele + /api, senão usar /api
+// 🔥 FORÇA URL CORRETA - SEM LÓGICA COMPLEXA
+// Se estiver em produção (não localhost), SEMPRE usar api.slothempresas.com.br
 const getBaseURL = () => {
-  // PRIMEIRO: Verificar se VITE_API_URL está configurada
-  const envUrl = import.meta.env.VITE_API_URL;
+  // Verificar hostname IMEDIATAMENTE
+  const isProduction = typeof window !== 'undefined' && 
+                       window.location && 
+                       window.location.hostname !== 'localhost' && 
+                       window.location.hostname !== '127.0.0.1' && 
+                       !window.location.hostname.includes('localhost');
   
+  // Se VITE_API_URL estiver configurada, usar ela
+  const envUrl = import.meta.env.VITE_API_URL;
   if (envUrl && envUrl.trim() !== '') {
-    // Se a URL já termina com /api, não adicionar novamente
     const finalUrl = envUrl.endsWith('/api') ? envUrl : `${envUrl}/api`;
     console.log('✅ Usando VITE_API_URL:', finalUrl);
     return finalUrl;
   }
   
-  // SEGUNDO: Se não tiver VITE_API_URL, verificar se está em produção
-  if (typeof window !== 'undefined' && window.location) {
-    const hostname = window.location.hostname;
-    console.log('🔍 Hostname detectado:', hostname);
-    
-    // Se não for localhost, SEMPRE usar api.slothempresas.com.br
-    // Isso inclui: slothempresas.com.br, www.slothempresas.com.br, *.netlify.app, etc
-    if (hostname !== 'localhost' && hostname !== '127.0.0.1' && !hostname.includes('localhost')) {
-      // FORÇAR uso de api.slothempresas.com.br SEMPRE em produção
-      const apiUrl = 'https://api.slothempresas.com.br/api';
-      console.warn('⚠️ VITE_API_URL não configurada! FORÇANDO uso de produção:', apiUrl);
-      console.warn('⚠️ Hostname atual:', hostname, '→ Usando API:', apiUrl);
-      return apiUrl;
-    }
+  // Se estiver em produção, FORÇAR api.slothempresas.com.br
+  if (isProduction) {
+    const apiUrl = 'https://api.slothempresas.com.br/api';
+    console.log('🔥 PRODUÇÃO DETECTADA - FORÇANDO:', apiUrl);
+    console.log('   Hostname:', window.location.hostname);
+    return apiUrl;
   }
   
-  // TERCEIRO: Fallback para desenvolvimento local
-  console.log('🔧 Usando API local: /api');
+  // Desenvolvimento local
+  console.log('🔧 Desenvolvimento local - usando /api');
   return '/api';
 };
 
-// FORÇAR baseURL ANTES de criar a instância - EXECUTAR IMEDIATAMENTE
+// FORÇAR baseURL - SEMPRE EXECUTAR
 let baseURL = getBaseURL();
 
-// SE ESTIVER EM PRODUÇÃO E BASEURL NÃO FOR API CORRETA, FORÇAR
+// VALIDAÇÃO FINAL - Se estiver em produção e baseURL estiver errado, CORRIGIR
 if (typeof window !== 'undefined' && window.location) {
   const hostname = window.location.hostname;
-  if (hostname !== 'localhost' && hostname !== '127.0.0.1' && !hostname.includes('localhost')) {
-    // Se não contém api.slothempresas.com.br, FORÇAR
+  const isProduction = hostname !== 'localhost' && hostname !== '127.0.0.1' && !hostname.includes('localhost');
+  
+  if (isProduction) {
+    // Se baseURL não contém api.slothempresas.com.br, FORÇAR CORREÇÃO
     if (!baseURL.includes('api.slothempresas.com.br')) {
-      console.error('❌ CORRIGINDO baseURL incorreto!');
+      console.error('🚨 ERRO CRÍTICO: baseURL incorreto em produção!');
       console.error('   Hostname:', hostname);
       console.error('   baseURL incorreto:', baseURL);
       baseURL = 'https://api.slothempresas.com.br/api';
-      console.error('   baseURL CORRIGIDO para:', baseURL);
+      console.error('   ✅ baseURL CORRIGIDO para:', baseURL);
     }
   }
 }
@@ -82,6 +82,32 @@ console.log('🔧 API Configurada:', {
   'URL completa exemplo': `${baseURL}/auth/employee`
 });
 
+// Interceptor para REQUISIÇÕES - FORÇAR URL CORRETA
+api.interceptors.request.use(
+  (config) => {
+    // Se estiver em produção e baseURL estiver errado, CORRIGIR
+    if (typeof window !== 'undefined' && window.location) {
+      const hostname = window.location.hostname;
+      const isProduction = hostname !== 'localhost' && hostname !== '127.0.0.1' && !hostname.includes('localhost');
+      
+      if (isProduction) {
+        // Se a URL completa não contém api.slothempresas.com.br, CORRIGIR
+        const fullUrl = (config.baseURL || '') + (config.url || '');
+        if (!fullUrl.includes('api.slothempresas.com.br') && !fullUrl.startsWith('/api')) {
+          console.error('🚨 INTERCEPTOR: URL incorreta detectada!');
+          console.error('   URL incorreta:', fullUrl);
+          config.baseURL = 'https://api.slothempresas.com.br/api';
+          console.error('   ✅ baseURL CORRIGIDO para:', config.baseURL);
+        }
+      }
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
 // Interceptor para tratar respostas
 api.interceptors.response.use(
   (response) => {
@@ -90,20 +116,28 @@ api.interceptors.response.use(
   },
   (error) => {
     // Tratar erros de resposta
+    const fullUrl = (error.config?.baseURL || '') + (error.config?.url || '');
     console.error('❌ Erro na API:', {
       url: error.config?.url,
       baseURL: error.config?.baseURL,
-      'URL completa': error.config?.baseURL + error.config?.url,
+      'URL completa': fullUrl,
       status: error.response?.status,
       message: error.message
     });
+    
+    // Se o erro for 404 e a URL não contém api.slothempresas.com.br, avisar
+    if (error.response?.status === 404 && !fullUrl.includes('api.slothempresas.com.br')) {
+      console.error('🚨 ERRO 404: URL incorreta! Deveria ser api.slothempresas.com.br');
+      console.error('   URL tentada:', fullUrl);
+      console.error('   URL correta:', `https://api.slothempresas.com.br/api${error.config?.url || ''}`);
+    }
     
     if (error.response) {
       // Se o erro tem uma resposta do servidor
       return Promise.reject(error);
     } else if (error.request) {
       // Se a requisição foi feita mas não houve resposta
-      console.error('❌ Sem resposta do servidor. URL tentada:', error.config?.baseURL + error.config?.url);
+      console.error('❌ Sem resposta do servidor. URL tentada:', fullUrl);
       return Promise.reject(new Error('Sem resposta do servidor'));
     } else {
       // Erro ao configurar a requisição
