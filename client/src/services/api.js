@@ -9,14 +9,14 @@ const getBaseURL = () => {
     return envUrl.endsWith('/api') ? envUrl : `${envUrl}/api`;
   }
   
-  // Fallback: se estiver em produção (não localhost), usar o domínio da API
+  // Fallback: se estiver em produção (não localhost), SEMPRE usar o domínio da API
   if (typeof window !== 'undefined') {
     const hostname = window.location.hostname;
     // Se não for localhost, assumir que está em produção
     if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
-      // SEMPRE usar api.slothempresas.com.br em produção
+      // FORÇAR uso de api.slothempresas.com.br em produção
       const apiUrl = 'https://api.slothempresas.com.br/api';
-      console.log('🔧 Usando API de produção:', apiUrl);
+      console.warn('⚠️ VITE_API_URL não configurada! Usando fallback de produção:', apiUrl);
       return apiUrl;
     }
   }
@@ -25,13 +25,23 @@ const getBaseURL = () => {
   return '/api';
 };
 
+// FORÇAR baseURL ANTES de criar a instância
+const baseURL = getBaseURL();
+
 const api = axios.create({
-  baseURL: getBaseURL(),
+  baseURL: baseURL,
   timeout: 10000, // 10 segundos de timeout
   headers: {
     'Content-Type': 'application/json',
   },
 });
+
+// Verificar se baseURL está correto
+if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+  if (!baseURL.includes('api.slothempresas.com.br')) {
+    console.error('❌ ERRO: baseURL incorreto! Deveria ser api.slothempresas.com.br mas é:', baseURL);
+  }
+}
 
 // Log para debug - FORÇAR URL DE PRODUÇÃO
 const finalBaseURL = getBaseURL();
