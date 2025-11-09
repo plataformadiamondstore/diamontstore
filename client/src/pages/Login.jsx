@@ -73,16 +73,26 @@ export default function Login() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-100 to-gray-200 flex flex-col">
       {/* Banner na parte superior - responsivo */}
-      <div className="w-full flex justify-center overflow-hidden bg-gray-100">
+      <div className="w-full flex justify-center overflow-hidden bg-gray-100 min-h-[150px]">
         <img 
-          src="/banners/banner-sloth-partners.jpeg" 
+          src={`${window.location.origin}/banners/banner-sloth-partners.jpeg`}
           alt="Sloth Partners Banner" 
           className="w-full h-auto object-contain max-h-[200px] sm:max-h-[250px] md:max-h-[300px] lg:max-h-[350px]"
           onError={(e) => {
             console.error('Erro ao carregar banner:', e.target.src);
-            // Não esconder o banner, apenas logar o erro
+            // Tentar caminho relativo
+            if (!e.target.src.includes('./banners')) {
+              e.target.src = './banners/banner-sloth-partners.jpeg';
+            } else {
+              // Se ainda falhar, mostrar placeholder
+              e.target.style.display = 'none';
+              const placeholder = document.createElement('div');
+              placeholder.className = 'w-full h-32 bg-gradient-to-r from-purple-400 to-purple-600 flex items-center justify-center';
+              placeholder.innerHTML = '<span class="text-white text-xl font-bold">Sloth Partners</span>';
+              e.target.parentElement.appendChild(placeholder);
+            }
           }}
-          onLoad={() => console.log('Banner carregado com sucesso')}
+          onLoad={() => console.log('✅ Banner carregado com sucesso')}
         />
       </div>
       

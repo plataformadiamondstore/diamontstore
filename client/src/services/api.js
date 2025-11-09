@@ -47,11 +47,19 @@ api.interceptors.response.use(
   },
   (error) => {
     // Tratar erros de resposta
+    console.error('❌ Erro na API:', {
+      url: error.config?.url,
+      baseURL: error.config?.baseURL,
+      status: error.response?.status,
+      message: error.message
+    });
+    
     if (error.response) {
       // Se o erro tem uma resposta do servidor
       return Promise.reject(error);
     } else if (error.request) {
       // Se a requisição foi feita mas não houve resposta
+      console.error('❌ Sem resposta do servidor. URL tentada:', error.config?.baseURL + error.config?.url);
       return Promise.reject(new Error('Sem resposta do servidor'));
     } else {
       // Erro ao configurar a requisição
