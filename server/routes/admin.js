@@ -1534,37 +1534,6 @@ router.get('/pedidos', async (req, res) => {
       });
     }
 
-    // SEMPRE buscar clubes pelos cadastro_clube para garantir que o nome apareça
-    // A relação do Supabase só funciona se clube_id estiver preenchido, mas temos cadastro_clube
-    for (const pedido of pedidos) {
-      const funcionario = Array.isArray(pedido.funcionarios) ? pedido.funcionarios[0] : pedido.funcionarios;
-      if (funcionario && funcionario.cadastro_clube) {
-        // Verificar se já tem clube pela relação com nome
-        const temClubeComNome = funcionario.clubes && 
-          ((Array.isArray(funcionario.clubes) && funcionario.clubes.length > 0 && funcionario.clubes[0]?.nome) || 
-           (typeof funcionario.clubes === 'object' && funcionario.clubes.nome));
-        
-        // Se não tem clube pela relação OU se tem mas não tem nome, buscar pelo cadastro_clube
-        if (!temClubeComNome) {
-          try {
-            const { data: clubeData, error: clubeError } = await supabase
-              .from('clubes')
-              .select('id, nome, cadastro_clube')
-              .eq('cadastro_clube', funcionario.cadastro_clube)
-              .eq('empresa_id', funcionario.empresa_id)
-              .limit(1)
-              .maybeSingle();
-            
-            if (!clubeError && clubeData) {
-              // Adicionar o clube encontrado ao funcionário
-              funcionario.clubes = clubeData;
-            }
-          } catch (error) {
-            // Silenciar erro - não quebrar o fluxo
-          }
-        }
-      }
-    }
 
     // Debug: verificar se SKU está sendo retornado
     if (pedidos.length > 0 && pedidos[0].pedido_itens && pedidos[0].pedido_itens.length > 0) {

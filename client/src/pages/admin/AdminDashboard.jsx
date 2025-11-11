@@ -340,6 +340,51 @@ export default function AdminDashboard() {
     }
   };
 
+  // Função robusta para normalizar dados do pedido (igual ao ManagerDashboard)
+  const normalizarDadosPedido = (pedido) => {
+    // Normalizar funcionarios (pode vir como array, objeto, null ou undefined)
+    let funcionario = null;
+    if (pedido.funcionarios) {
+      if (Array.isArray(pedido.funcionarios)) {
+        funcionario = pedido.funcionarios.length > 0 ? pedido.funcionarios[0] : null;
+      } else if (typeof pedido.funcionarios === 'object') {
+        funcionario = pedido.funcionarios;
+      }
+    }
+
+    // Normalizar empresas
+    let empresa = null;
+    if (funcionario) {
+      if (Array.isArray(funcionario.empresas)) {
+        empresa = funcionario.empresas.length > 0 ? funcionario.empresas[0] : null;
+      } else if (funcionario.empresas && typeof funcionario.empresas === 'object') {
+        empresa = funcionario.empresas;
+      }
+    }
+
+    // Normalizar clubes - verificar múltiplas formas de acesso
+    let clube = null;
+    if (funcionario) {
+      // Tentar array primeiro
+      if (Array.isArray(funcionario.clubes)) {
+        clube = funcionario.clubes.length > 0 ? funcionario.clubes[0] : null;
+      } 
+      // Tentar objeto direto - verificar se tem id OU se tem nome (backend pode ter buscado)
+      else if (funcionario.clubes && typeof funcionario.clubes === 'object') {
+        // Se tem id, é válido. Se não tem id mas tem nome, também é válido (backend buscou)
+        if (funcionario.clubes.id || funcionario.clubes.nome) {
+          clube = funcionario.clubes;
+        }
+      }
+    }
+
+    return {
+      funcionario,
+      empresa,
+      clube
+    };
+  };
+
   const handleCreateClube = async (e) => {
     e.preventDefault();
     try {
@@ -595,6 +640,9 @@ export default function AdminDashboard() {
     const pedidosAgrupados = {};
     pedidosFiltrados.forEach(pedido => {
       if (pedido.pedido_itens && pedido.pedido_itens.length > 0) {
+        // Normalizar dados do pedido usando função robusta
+        const { funcionario, empresa, clube } = normalizarDadosPedido(pedido);
+        
         const itensPedido = [];
         let quantidadeTotalPedido = 0;
         
@@ -614,17 +662,17 @@ export default function AdminDashboard() {
           quantidadeTotalPedido += quantidade;
         });
         
-        // Buscar cadastro_clube: primeiro do funcionário, depois do clube relacionado
-        const cadastroClubeValue = pedido.funcionarios?.cadastro_clube || pedido.funcionarios?.clubes?.cadastro_clube || 'N/A';
-        // Buscar cadastro_empresa: primeiro do funcionário, depois da empresa relacionada
-        const cadastroEmpresaValue = pedido.funcionarios?.cadastro_empresa || pedido.funcionarios?.empresas?.cadastro_empresa || 'N/A';
+        // Buscar cadastro_clube: primeiro do clube relacionado, depois do funcionário
+        const cadastroClubeValue = clube?.cadastro_clube || funcionario?.cadastro_clube || 'N/A';
+        // Buscar cadastro_empresa: do funcionário que fez o pedido
+        const cadastroEmpresaValue = funcionario?.cadastro_empresa || null;
         
         pedidosAgrupados[pedido.id] = {
           pedidoId: pedido.id,
-          funcionario: pedido.funcionarios?.nome_completo || 'N/A',
-          empresa: pedido.funcionarios?.empresas?.nome || 'N/A',
+          funcionario: funcionario?.nome_completo || 'N/A',
+          empresa: empresa?.nome || 'N/A',
           cadastroEmpresa: cadastroEmpresaValue,
-          clube: pedido.funcionarios?.clubes?.nome || 'N/A',
+          clube: '', // Campo oculto - não exibir nome do clube
           cadastroClube: cadastroClubeValue,
           data: pedido.created_at,
           status: pedido.status,
@@ -718,9 +766,8 @@ export default function AdminDashboard() {
           <div class="info-pedido">
             <p><strong>Funcionário:</strong> ${pedido.funcionario}</p>
             <p><strong>Empresa:</strong> ${pedido.empresa}</p>
-            <p><strong>Cadastro Empresa:</strong> ${pedido.cadastroEmpresa}</p>
-            <p><strong>Clube:</strong> ${pedido.clube}</p>
-            <p><strong>Cadastro Clube:</strong> ${pedido.cadastroClube}</p>
+            ${pedido.cadastroEmpresa ? `<p><strong>Cadastro Empresa:</strong> ${pedido.cadastroEmpresa}</p>` : ''}
+            ${pedido.cadastroClube ? `<p><strong>Cadastro Clube:</strong> ${pedido.cadastroClube}</p>` : ''}
             <p><strong>Data:</strong> ${dataFormatada} às ${horaFormatada}</p>
             <p><strong>Status:</strong> ${pedido.status}</p>
           </div>
@@ -3515,6 +3562,9 @@ export default function AdminDashboard() {
                           
                           <div className="space-y-4">
                             {pedidosEmpresa.map((pedido) => {
+                              // Normalizar dados do pedido usando função robusta
+                              const { funcionario, empresa, clube } = normalizarDadosPedido(pedido);
+                              
                               const dataHora = new Date(pedido.created_at);
                               const dataFormatada = dataHora.toLocaleDateString('pt-BR', {
                                 day: '2-digit',
@@ -3562,20 +3612,21 @@ export default function AdminDashboard() {
                                         </p>
                                       </div>
                                       <p className="text-sm text-gray-600">
-                                        Funcionário: {pedido.funcionarios?.nome_completo || 'N/A'}
+                                        Funcionário: {funcionario?.nome_completo || 'N/A'}
                                       </p>
                                       <p className="text-sm text-gray-600">
-                                        <strong>Empresa:</strong> {pedido.funcionarios?.empresas?.nome || 'N/A'}
+                                        <strong>Empresa:</strong> {empresa?.nome || 'N/A'}
                                       </p>
-                                      <p className="text-sm text-gray-600">
-                                        <strong>Cadastro Empresa:</strong> {pedido.funcionarios?.empresas?.cadastro_empresa || pedido.funcionarios?.cadastro_empresa || 'N/A'}
-                                      </p>
-                                      <p className="text-sm text-gray-600">
-                                        <strong>Clube:</strong> {pedido.funcionarios?.clubes?.nome || 'N/A'}
-                                      </p>
-                                      <p className="text-sm text-gray-600">
-                                        <strong>Cadastro Clube:</strong> {pedido.funcionarios?.cadastro_clube || pedido.funcionarios?.clubes?.cadastro_clube || 'N/A'}
-                                      </p>
+                                      {funcionario?.cadastro_empresa && (
+                                        <p className="text-sm text-gray-600">
+                                          <strong>Cadastro Empresa:</strong> {funcionario.cadastro_empresa}
+                                        </p>
+                                      )}
+                                      {(clube?.cadastro_clube || funcionario?.cadastro_clube) && (
+                                        <p className="text-sm text-gray-600">
+                                          <strong>Cadastro Clube:</strong> {clube?.cadastro_clube || funcionario?.cadastro_clube}
+                                        </p>
+                                      )}
                                       <p className="text-sm text-gray-600">
                                         Data: {dataFormatada} às {horaFormatada}
                                       </p>

@@ -214,7 +214,6 @@ export default function ManagerDashboard() {
               <p><strong>Funcionário:</strong> ${func?.nome_completo || 'N/A'}</p>
               <p><strong>Empresa:</strong> ${emp?.nome || 'N/A'}</p>
               ${(func?.cadastro_empresa || emp?.cadastro_empresa) ? `<p><strong>Cadastro Empresa:</strong> ${func?.cadastro_empresa || emp?.cadastro_empresa}</p>` : ''}
-              <p><strong>Clube:</strong> ${clb?.nome || func?.clubes?.nome || 'N/A'}</p>
               ${(clb?.cadastro_clube || func?.cadastro_clube) ? `<p><strong>Cadastro Clube:</strong> ${clb?.cadastro_clube || func?.cadastro_clube}</p>` : ''}
               <p><strong>Data:</strong> ${dataFormatada} às ${horaFormatada}</p>
             </div>
@@ -613,14 +612,6 @@ export default function ManagerDashboard() {
                             <strong>Cadastro Empresa:</strong> {funcionario?.cadastro_empresa || empresa?.cadastro_empresa}
                           </p>
                         )}
-                        <p className="text-sm text-gray-600">
-                          <strong>Clube:</strong> {
-                            (clube?.nome) || 
-                            (funcionario?.clubes?.nome) || 
-                            (Array.isArray(funcionario?.clubes) && funcionario?.clubes[0]?.nome) ||
-                            'N/A'
-                          }
-                        </p>
                         {(clube?.cadastro_clube || funcionario?.cadastro_clube) && (
                           <p className="text-sm text-gray-600">
                             <strong>Cadastro Clube:</strong> {clube?.cadastro_clube || funcionario?.cadastro_clube}
