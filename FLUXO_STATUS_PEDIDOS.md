@@ -84,8 +84,8 @@ O sistema de pedidos utiliza uma **lógica de status por item**, onde cada produ
 **Status dos Itens:** `rejeitado`
 
 **Onde aparece:**
-- ✅ Tela do funcionário - mostra "Rejeitado" (vermelho)
-- ✅ Tela do gestor - aparece no card "Rejeitados"
+- ✅ Tela do funcionário - mostra "Sem estoque" (vermelho) ⚠️ **Exibido como "Sem estoque"**
+- ✅ Tela do gestor - aparece no card "Sem estoque" (renomeado de "Rejeitados")
 - ✅ Tela do admin - item mostra status "REJEITADO" (vermelho)
 
 ---
@@ -120,11 +120,22 @@ Os cards são calculados baseados nos **status dos itens**, não do pedido:
   - `Produto autorizado`
   - `aprovado`
 
-### **Rejeitados**
+### **Sem estoque** (anteriormente "Rejeitados")
 - Pedidos que têm pelo menos um item com status `rejeitado`
+- **Card renomeado:** "Rejeitados" → "Sem estoque"
+- **Filtro inteligente:** Ao expandir pedido, mostra apenas produtos rejeitados (sem estoque)
 
 ### **Produto Sem Estoque**
 - Pedidos que têm pelo menos um item com status `produto sem estoque`
+
+**Layout dos Cards:**
+- Todos os 5 cards ficam em uma única linha (grid-cols-5)
+- Cards: Todos Pedidos | Pendentes | Aguardando Aprovação | Aprovados | Sem estoque
+
+**Filtros Inteligentes:**
+- **Card "Sem estoque":** Ao expandir pedido, mostra apenas produtos com status `rejeitado`
+- **Card "Aprovados":** Ao expandir pedido, mostra apenas produtos aprovados (oculta rejeitados)
+- **Sem filtro:** Mostra todos os produtos do pedido
 
 ---
 
@@ -137,7 +148,7 @@ Os cards são calculados baseados nos **status dos itens**, não do pedido:
 - `verificando estoque` → "Verificando Estoque" (azul)
 - `aguardando aprovação de estoque` → "Verificando Estoque" (azul)
 - `Produto autorizado` → "Produto autorizado" (verde)
-- `rejeitado` → "Rejeitado" (vermelho)
+- `rejeitado` → "Sem estoque" (vermelho) ⚠️ **Exibido como "Sem estoque" ao invés de "Rejeitado"**
 - `produto sem estoque` → "Produto Sem Estoque" (laranja)
 
 **Observação:** Status do pedido não é mais exibido, apenas dos itens.
@@ -147,10 +158,21 @@ Os cards são calculados baseados nos **status dos itens**, não do pedido:
 **Status exibidos por item:**
 - Mesmos status da tela do funcionário
 - Badge colorido ao lado de cada produto
+- `rejeitado` → "Sem estoque" (vermelho) ⚠️ **Exibido como "Sem estoque" ao invés de "Rejeitado"**
 
-**Cards de filtro:**
+**Cards de filtro (5 cards em linha única):**
+- **Todos Pedidos:** Mostra todos os pedidos
+- **Pendentes:** Pedidos com itens pendentes
+- **Aguardando Aprovação:** Pedidos com itens aguardando aprovação
+- **Aprovados:** Pedidos com itens aprovados
+- **Sem estoque:** Pedidos com itens rejeitados (renomeado de "Rejeitados")
 - Baseados nos status dos itens
 - Um pedido pode aparecer em múltiplos cards se tiver itens com status diferentes
+
+**Filtros Inteligentes ao Expandir Pedido:**
+- **Card "Sem estoque" ativo:** Mostra apenas produtos rejeitados (sem estoque)
+- **Card "Aprovados" ativo:** Mostra apenas produtos aprovados (oculta rejeitados)
+- **Outros filtros ou sem filtro:** Mostra todos os produtos do pedido
 
 ### Tela do Admin (`/adm/dashboard`)
 
@@ -282,6 +304,26 @@ const pedidosAprovados = todosPedidos.filter(p => {
 })}
 ```
 
+**Filtro inteligente de itens ao expandir pedido:**
+```javascript
+{pedido.pedido_itens
+  ?.filter(item => {
+    // Se o filtro estiver ativo para "rejeitado", mostrar apenas itens rejeitados
+    if (filters.status === 'rejeitado') {
+      return item.status === 'rejeitado';
+    }
+    // Se o filtro estiver ativo para "aprovado", mostrar apenas itens aprovados (não mostrar rejeitados)
+    if (filters.status === 'aprovado') {
+      return item.status === 'Produto autorizado' || item.status === 'aprovado';
+    }
+    // Caso contrário, mostrar todos os itens
+    return true;
+  })
+  ?.map((item) => {
+    // Renderizar item...
+  })}
+```
+
 #### Orders.jsx (Funcionário)
 
 **Exibição de status por item:**
@@ -307,7 +349,7 @@ const pedidosAprovados = todosPedidos.filter(p => {
 | `aguardando aprovação de estoque` | Aprovado pelo gestor, aguardando admin | Azul | Gestor aprovou |
 | `Produto autorizado` | Item aprovado e estoque reduzido | Verde | Admin aprovou |
 | `aprovado` | (Legado - não usado mais) | Verde | (Legado) |
-| `rejeitado` | Item rejeitado | Vermelho | Admin rejeitou |
+| `rejeitado` | Item rejeitado (exibido como "Sem estoque") | Vermelho | Admin rejeitou |
 | `produto sem estoque` | Produto sem estoque disponível | Laranja | Sistema detectou falta |
 
 ---
@@ -339,6 +381,30 @@ const pedidosAprovados = todosPedidos.filter(p => {
 
 - Função `normalizarDadosPedido()` trata arrays/objetos/null do Supabase
 - Sempre usar esta função ao acessar `funcionarios`, `empresas`, `clubes`
+
+### 5. Exibição de Status "Rejeitado"
+
+- Status `rejeitado` é exibido como "Sem estoque" nas telas do funcionário e gestor
+- Card "Rejeitados" foi renomeado para "Sem estoque" na tela do gestor
+- Na tela do admin, continua mostrando "REJEITADO"
+
+### 6. Filtros Inteligentes
+
+- Quando um filtro de status está ativo, ao expandir um pedido, mostra apenas os itens relevantes:
+  - **Filtro "Sem estoque":** Mostra apenas produtos rejeitados
+  - **Filtro "Aprovados":** Mostra apenas produtos aprovados (oculta rejeitados)
+  - **Sem filtro:** Mostra todos os produtos do pedido
+
+### 7. Layout dos Cards
+
+- Todos os 5 cards de filtro ficam em uma única linha (grid-cols-5)
+- Layout responsivo mantido
+
+### 8. Impressão de Pedidos
+
+- **Removido:** Campo "Status" do pedido
+- **Removido:** Coluna "Subtotal" na tabela de produtos
+- **Mantido:** Produto, SKU, Variação, Quantidade, Preço Unit., Total do pedido
 
 ---
 
@@ -382,7 +448,11 @@ FINALIZADO
   - Filtros baseados em status dos itens
   - Exibição de status por item
   - Função de normalização de dados
-  - Cards de filtro atualizados
+  - Cards de filtro atualizados (5 cards em linha única)
+  - Filtros inteligentes (mostra apenas itens relevantes ao expandir)
+  - Card "Rejeitados" renomeado para "Sem estoque"
+  - Status "rejeitado" exibido como "Sem estoque"
+  - Impressão sem status do pedido e sem subtotal
 
 - `client/src/pages/admin/AdminDashboard.jsx`
   - Botões de ação apenas por item
@@ -392,6 +462,7 @@ FINALIZADO
 - `client/src/pages/Orders.jsx`
   - Exibição de status por item
   - Remoção de status do pedido
+  - Status "rejeitado" exibido como "Sem estoque"
 
 ---
 
@@ -408,10 +479,62 @@ FINALIZADO
 - [x] Remoção de status do pedido
 - [x] Função de normalização de dados implementada
 - [x] Documentação completa criada
+- [x] Cards de filtro em linha única (5 colunas)
+- [x] Filtros inteligentes ao expandir pedidos
+- [x] Card "Rejeitados" renomeado para "Sem estoque"
+- [x] Status "rejeitado" exibido como "Sem estoque" (funcionário e gestor)
+- [x] Impressão sem status do pedido e sem subtotal
+
+---
+
+## 🎨 Layout e Interface
+
+### Tela do Gestor (`/adm/gestor`)
+
+**Cards de Filtro (5 cards em linha única):**
+```
+┌──────────────┬──────────┬─────────────────────┬───────────┬─────────────┐
+│ Todos Pedidos│ Pendentes│ Aguardando Aprovação│ Aprovados │ Sem estoque │
+│      2       │    0     │         0           │     2     │      0      │
+└──────────────┴──────────┴─────────────────────┴───────────┴─────────────┘
+```
+
+**Comportamento dos Filtros:**
+- **Todos Pedidos:** Mostra todos os pedidos com todos os produtos
+- **Pendentes:** Mostra pedidos com itens pendentes, exibe todos os produtos ao expandir
+- **Aguardando Aprovação:** Mostra pedidos aguardando, exibe todos os produtos ao expandir
+- **Aprovados:** Mostra pedidos aprovados, ao expandir mostra **apenas produtos aprovados** (oculta rejeitados)
+- **Sem estoque:** Mostra pedidos rejeitados, ao expandir mostra **apenas produtos rejeitados**
+
+**Exibição de Itens ao Expandir:**
+- Cada produto mostra: Nome, SKU, Variação, Quantidade, Preço Unit., Status
+- Status exibido com badge colorido ao lado de cada produto
+- Filtro ativo determina quais produtos são exibidos
+
+### Impressão de Pedidos
+
+**Campos exibidos:**
+- Funcionário
+- Empresa
+- Cadastro Empresa (se houver)
+- Clube
+- Cadastro Clube (se houver)
+- Data e hora
+- **Tabela de produtos:**
+  - Produto
+  - SKU
+  - Variação
+  - Quantidade
+  - Preço Unit.
+- Total do pedido
+
+**Campos removidos:**
+- ❌ Status do pedido
+- ❌ Subtotal por item
 
 ---
 
 **Data de Criação:** 2025-01-27  
 **Última Atualização:** 2025-01-27  
-**Versão:** 1.0
+**Versão:** 2.0
 
