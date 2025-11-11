@@ -36,11 +36,18 @@ const cadastroEmpresaValue = pedido.funcionarios?.cadastro_empresa || pedido.fun
 
 ### 3. Frontend - Exibição na Lista de Pedidos
 
-A exibição na lista já estava correta com fallback:
+**AdminDashboard** (`client/src/pages/admin/AdminDashboard.jsx` linha ~3610-3616):
 ```javascript
 <strong>Cadastro Empresa:</strong> {pedido.funcionarios?.empresas?.cadastro_empresa || pedido.funcionarios?.cadastro_empresa || 'N/A'}
 
-<strong>Cadastro Clube:</strong> {pedido.funcionarios?.cadastro_clube || 'N/A'}
+<strong>Cadastro Clube:</strong> {pedido.funcionarios?.cadastro_clube || pedido.funcionarios?.clubes?.cadastro_clube || 'N/A'}
+```
+
+**ManagerDashboard** (`client/src/pages/admin/ManagerDashboard.jsx` linha ~451-457):
+```javascript
+<strong>Cadastro Empresa:</strong> {pedido.funcionarios?.cadastro_empresa || pedido.funcionarios?.empresas?.cadastro_empresa || 'N/A'}
+
+<strong>Cadastro Clube:</strong> {pedido.funcionarios?.cadastro_clube || pedido.funcionarios?.clubes?.cadastro_clube || 'N/A'}
 ```
 
 ## 📋 ESTRUTURA DE DADOS RETORNADA PELA API
@@ -71,11 +78,21 @@ A exibição na lista já estava correta com fallback:
 
 ## 🔧 ONDE OS DADOS SÃO EXIBIDOS
 
-1. **Lista de Pedidos** (`AdminDashboard.jsx` linha ~3610-3616)
+1. **Lista de Pedidos - AdminDashboard** (`AdminDashboard.jsx` linha ~3610-3616)
    - Exibe: Funcionário, Empresa, Cadastro Empresa, Clube, Cadastro Clube
+   - ✅ Com fallback implementado
 
-2. **Impressão de Pedidos** (`AdminDashboard.jsx` linha ~716-720)
+2. **Lista de Pedidos - ManagerDashboard** (`ManagerDashboard.jsx` linha ~451-457)
    - Exibe: Funcionário, Empresa, Cadastro Empresa, Clube, Cadastro Clube
+   - ✅ Com fallback implementado (corrigido em 2025-01-27)
+
+3. **Impressão de Pedidos - AdminDashboard** (`AdminDashboard.jsx` linha ~716-720)
+   - Exibe: Funcionário, Empresa, Cadastro Empresa, Clube, Cadastro Clube
+   - ✅ Com fallback implementado
+
+4. **Impressão de Pedidos - ManagerDashboard** (`ManagerDashboard.jsx` linha ~172-174)
+   - Exibe: Funcionário, Empresa, Cadastro Empresa, Clube, Cadastro Clube
+   - ✅ Com fallback implementado
 
 ## ⚠️ IMPORTANTE
 

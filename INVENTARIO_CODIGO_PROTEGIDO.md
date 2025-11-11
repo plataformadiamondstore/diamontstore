@@ -115,12 +115,30 @@ Todos estes campos DEVEM estar presentes e validados:
   - **EAN** (obrigatório - linha ~722)
   - Variação
   - Quantidade
-- ✅ Exibição de **Cadastro Clube** (número do clube) nas informações do pedido (linha ~714)
+- ✅ Exibição de **Cadastro Clube** (número do clube) nas informações do pedido (linha ~720)
+- ✅ **FALLBACK CRÍTICO** para buscar `cadastro_clube` (linha ~614):
+  ```javascript
+  const cadastroClubeValue = pedido.funcionarios?.cadastro_clube || pedido.funcionarios?.clubes?.cadastro_clube || 'N/A';
+  ```
+- ✅ **FALLBACK CRÍTICO** para buscar `cadastro_empresa` (linha ~616):
+  ```javascript
+  const cadastroEmpresaValue = pedido.funcionarios?.cadastro_empresa || pedido.funcionarios?.empresas?.cadastro_empresa || 'N/A';
+  ```
+
+#### Backend (`server/routes/admin.js`):
+- ✅ Query DEVE buscar `cadastro_clube` da tabela `clubes` (linha ~1468):
+  ```javascript
+  clubes (id, nome, cadastro_clube)
+  ```
 
 **IMPORTANTE**: 
 - A coluna EAN DEVE estar presente na impressão
-- O número do clube (cadastro_clube) DEVE ser exibido
+- O número do clube (cadastro_clube) DEVE ser exibido com FALLBACK
+- O número da empresa (cadastro_empresa) DEVE ser exibido com FALLBACK
+- **NUNCA REMOVER** os fallbacks (`||`) - eles garantem que os dados sejam exibidos
+- **NUNCA REMOVER** `cadastro_clube` da query do Supabase na tabela `clubes`
 - As colunas de Preço Unit. e Subtotal foram REMOVIDAS por solicitação do usuário (2025-01-27)
+- **Ver documentação completa**: `SOLUCAO_EXIBIR_DADOS_PEDIDOS.md`
 
 ---
 
