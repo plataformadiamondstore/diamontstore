@@ -61,31 +61,16 @@ router.post('/empresas', async (req, res) => {
       }
     }
     
-    // Gerar cadastro_empresa único se não foi fornecido ou está vazio
-    let cadastroEmpresaFinal = cadastro_empresa;
-    if (!cadastroEmpresaFinal || cadastroEmpresaFinal.trim() === '') {
-      // Gerar um cadastro único baseado no nome da empresa e timestamp
-      const timestamp = Date.now();
-      const nomeNormalizado = nome.trim().toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 10);
-      cadastroEmpresaFinal = `${nomeNormalizado}${timestamp.toString().slice(-6)}`;
-      
-      // Verificar se o cadastro gerado já existe (improvável, mas verificar)
-      const { data: cadastroExistente } = await supabase
-        .from('empresas')
-        .select('id')
-        .eq('cadastro_empresa', cadastroEmpresaFinal)
-        .limit(1);
-      
-      if (cadastroExistente && cadastroExistente.length > 0) {
-        // Se por acaso existir, adicionar mais números
-        cadastroEmpresaFinal = `${nomeNormalizado}${timestamp}`;
-      }
+    // Usar cadastro_empresa apenas se foi fornecido e não está vazio
+    let cadastroEmpresaFinal = null;
+    if (cadastro_empresa && cadastro_empresa.trim() !== '') {
+      cadastroEmpresaFinal = cadastro_empresa.trim();
     }
     
     // Inserir empresa
     const { data: empresasInseridas, error: insertError } = await supabase
       .from('empresas')
-      .insert({ nome, cadastro_empresa: cadastroEmpresaFinal.trim() })
+      .insert({ nome, cadastro_empresa: cadastroEmpresaFinal })
       .select();
 
     if (insertError) {
@@ -1026,6 +1011,8 @@ router.put('/produtos/:id', uploadImages.array('imagens', 5), async (req, res) =
     const categoria = req.body.categoria;
     const marca = req.body.marca;
     const sku = req.body.sku;
+    const ean = req.body.ean;
+    const estoque = req.body.estoque;
     const variacoes = req.body.variacoes;
     
     const fs = await import('fs/promises');
@@ -1045,6 +1032,21 @@ router.put('/produtos/:id', uploadImages.array('imagens', 5), async (req, res) =
         updateData.sku = null;
       }
     }
+    // EAN: sempre incluir no updateData se foi enviado (mesmo que vazio)
+    if (ean !== undefined) {
+      if (ean !== null && ean !== '') {
+        updateData.ean = String(ean);
+      } else {
+        updateData.ean = null;
+      }
+    }
+    // Estoque: sempre incluir no updateData se foi enviado
+    if (estoque !== undefined && estoque !== null && estoque !== '') {
+      const estoqueNum = parseInt(estoque, 10);
+      if (!isNaN(estoqueNum)) {
+        updateData.estoque = estoqueNum;
+      }
+    }
     if (variacoes !== undefined && variacoes !== null) {
       try {
         updateData.variacoes = Array.isArray(variacoes) ? variacoes : JSON.parse(variacoes);
@@ -1057,6 +1059,10 @@ router.put('/produtos/:id', uploadImages.array('imagens', 5), async (req, res) =
     console.log('Dados para atualizar:', Object.keys(updateData));
     console.log('SKU recebido:', sku);
     console.log('SKU no updateData:', updateData.sku);
+    console.log('EAN recebido:', ean);
+    console.log('EAN no updateData:', updateData.ean);
+    console.log('Estoque recebido:', estoque);
+    console.log('Estoque no updateData:', updateData.estoque);
 
     // Atualizar produto - NUNCA usar .single() após update
     console.log('Atualizando produto com dados:', JSON.stringify(updateData, null, 2));
@@ -1474,9 +1480,8 @@ router.get('/pedidos', async (req, res) => {
       `)
       .order('created_at', { ascending: false });
 
-    if (empresa_id) {
-      query = query.eq('funcionarios.empresa_id', empresa_id);
-    }
+    // Não filtrar por empresa_id na query (Supabase pode não suportar filtro em relação aninhada)
+    // Vamos filtrar depois de buscar os dados
     if (status) {
       query = query.eq('status', status);
     }
@@ -1489,14 +1494,44 @@ router.get('/pedidos', async (req, res) => {
 
     const { data, error } = await query;
 
-    if (error) throw error;
+    if (error) {
+      console.error('Erro ao buscar pedidos:', error);
+      throw error;
+    }
 
-    // Filtrar por nome do funcionário se fornecido
+    // Debug: verificar estrutura dos dados retornados
+    if (data && data.length > 0) {
+      console.log('DEBUG PEDIDOS - Total de pedidos retornados:', data.length);
+      console.log('DEBUG PEDIDOS - Primeiro pedido ID:', data[0].id);
+      console.log('DEBUG PEDIDOS - Funcionarios do primeiro pedido:', JSON.stringify(data[0].funcionarios, null, 2));
+      console.log('DEBUG PEDIDOS - Tipo de funcionarios:', Array.isArray(data[0].funcionarios) ? 'array' : typeof data[0].funcionarios);
+    } else {
+      console.log('DEBUG PEDIDOS - Nenhum pedido retornado');
+    }
+
+    // Filtrar por empresa_id se fornecido (após buscar os dados)
     let pedidos = data || [];
+    if (empresa_id) {
+      pedidos = pedidos.filter(p => {
+        // Normalizar funcionarios (pode vir como array ou objeto)
+        const funcionario = Array.isArray(p.funcionarios) ? p.funcionarios[0] : p.funcionarios;
+        if (!funcionario) return false;
+        
+        // Normalizar empresas (pode vir como array ou objeto)
+        const empresa = Array.isArray(funcionario.empresas) ? funcionario.empresas[0] : funcionario.empresas;
+        const empresaId = empresa?.id || funcionario?.empresa_id;
+        
+        return empresaId === parseInt(empresa_id, 10);
+      });
+      console.log(`DEBUG PEDIDOS - Após filtrar por empresa_id ${empresa_id}: ${pedidos.length} pedidos`);
+    }
+    
+    // Filtrar por nome do funcionário se fornecido
     if (funcionario_nome) {
-      pedidos = pedidos.filter(p => 
-        p.funcionarios?.nome_completo?.toLowerCase().includes(funcionario_nome.toLowerCase())
-      );
+      pedidos = pedidos.filter(p => {
+        const funcionario = Array.isArray(p.funcionarios) ? p.funcionarios[0] : p.funcionarios;
+        return funcionario?.nome_completo?.toLowerCase().includes(funcionario_nome.toLowerCase());
+      });
     }
 
     // Debug: verificar se SKU está sendo retornado
@@ -1512,38 +1547,118 @@ router.get('/pedidos', async (req, res) => {
   }
 });
 
-// Aprovar pedido
+// Aprovar pedido (Gestor) - aprova TODOS os itens do pedido para "aguardando aprovação de estoque"
 router.put('/pedidos/:id/aprovar', async (req, res) => {
   try {
-    // Buscar o pedido atual para verificar o status
-    const { data: pedidoAtual, error: errorBuscar } = await supabase
-      .from('pedidos')
-      .select('status')
-      .eq('id', req.params.id)
-      .single();
+    // Buscar todos os itens do pedido
+    const { data: itens, error: errorBuscar } = await supabase
+      .from('pedido_itens')
+      .select('id, status')
+      .eq('pedido_id', req.params.id);
 
     if (errorBuscar) throw errorBuscar;
-
-    // Determinar o novo status baseado no status atual
-    let novoStatus;
-    if (pedidoAtual.status === 'pendente') {
-      novoStatus = 'verificando estoque';
-    } else if (pedidoAtual.status === 'verificando estoque') {
-      novoStatus = 'aprovado';
-    } else {
-      // Se já estiver aprovado ou outro status, manter ou definir como aprovado
-      novoStatus = 'aprovado';
+    if (!itens || itens.length === 0) {
+      return res.status(404).json({ error: 'Nenhum item encontrado no pedido' });
     }
 
-    const { data, error } = await supabase
-      .from('pedidos')
-      .update({ status: novoStatus })
-      .eq('id', req.params.id)
-      .select()
-      .single();
+    // Atualizar TODOS os itens para "aguardando aprovação de estoque"
+    const { error: updateError } = await supabase
+      .from('pedido_itens')
+      .update({ status: 'aguardando aprovação de estoque' })
+      .eq('pedido_id', req.params.id)
+      .in('status', ['pendente', null]);
 
-    if (error) throw error;
-    res.json({ success: true, pedido: data });
+    if (updateError) throw updateError;
+
+    // NÃO atualizar status do pedido - status fica apenas nos itens
+
+    // Aguardar um pouco para garantir que o update foi commitado
+    await new Promise(resolve => setTimeout(resolve, 50));
+
+    // Buscar pedido atualizado com itens
+    const { data: pedidoAtualizado, error: fetchError } = await supabase
+      .from('pedidos')
+      .select('*, pedido_itens(*)')
+      .eq('id', req.params.id)
+      .limit(1);
+
+    if (fetchError) throw fetchError;
+    if (!pedidoAtualizado || pedidoAtualizado.length === 0) {
+      throw new Error('Pedido não encontrado após atualização');
+    }
+
+    res.json({ success: true, pedido: pedidoAtualizado[0] });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Aprovar pedido (Admin) - aprova itens "aguardando aprovação de estoque" para "Produto autorizado"
+router.put('/pedidos/:id/aprovar-admin', async (req, res) => {
+  try {
+    // Buscar itens que estão "aguardando aprovação de estoque"
+    const { data: itens, error: errorBuscar } = await supabase
+      .from('pedido_itens')
+      .select('id, status, produto_id, quantidade')
+      .eq('pedido_id', req.params.id)
+      .eq('status', 'aguardando aprovação de estoque');
+
+    if (errorBuscar) throw errorBuscar;
+    if (!itens || itens.length === 0) {
+      return res.status(404).json({ error: 'Nenhum item aguardando aprovação encontrado' });
+    }
+
+    // Atualizar itens para "Produto autorizado"
+    const { error: updateError } = await supabase
+      .from('pedido_itens')
+      .update({ status: 'Produto autorizado' })
+      .eq('pedido_id', req.params.id)
+      .eq('status', 'aguardando aprovação de estoque');
+
+    if (updateError) throw updateError;
+
+    // NÃO mudar status do pedido - status fica apenas nos itens
+
+    // Aguardar um pouco para garantir que o update foi commitado
+    await new Promise(resolve => setTimeout(resolve, 50));
+
+    // Reduzir estoque dos produtos aprovados
+    for (const item of itens) {
+      if (item.produto_id) {
+        const { data: produto, error: errorProduto } = await supabase
+          .from('produtos')
+          .select('estoque, ativo')
+          .eq('id', item.produto_id)
+          .single();
+
+        if (!errorProduto && produto) {
+          const novoEstoque = Math.max(0, (produto.estoque || 0) - (item.quantidade || 0));
+          const novoAtivo = novoEstoque > 0;
+
+          await supabase
+            .from('produtos')
+            .update({ 
+              estoque: novoEstoque,
+              ativo: novoAtivo
+            })
+            .eq('id', item.produto_id);
+        }
+      }
+    }
+
+    // Buscar pedido atualizado com itens para verificar se todos foram autorizados
+    const { data: pedidoAtualizado, error: fetchError } = await supabase
+      .from('pedidos')
+      .select('*, pedido_itens(*)')
+      .eq('id', req.params.id)
+      .limit(1);
+
+    if (fetchError) throw fetchError;
+    if (!pedidoAtualizado || pedidoAtualizado.length === 0) {
+      throw new Error('Pedido não encontrado após atualização');
+    }
+
+    res.json({ success: true, pedido: pedidoAtualizado[0] });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -1570,15 +1685,30 @@ router.put('/pedidos/:id/rejeitar', async (req, res) => {
       novoStatus = 'rejeitado';
     }
 
-    const { data, error } = await supabase
+    // Atualizar pedido - NUNCA usar .single() após update
+    const { error: updateError } = await supabase
       .from('pedidos')
       .update({ status: novoStatus })
-      .eq('id', req.params.id)
-      .select()
-      .single();
+      .eq('id', req.params.id);
 
-    if (error) throw error;
-    res.json({ success: true, pedido: data });
+    if (updateError) throw updateError;
+
+    // Aguardar um pouco para garantir que o update foi commitado
+    await new Promise(resolve => setTimeout(resolve, 50));
+
+    // Buscar pedido atualizado separadamente
+    const { data: pedidoAtualizado, error: fetchError } = await supabase
+      .from('pedidos')
+      .select('*')
+      .eq('id', req.params.id)
+      .limit(1);
+
+    if (fetchError) throw fetchError;
+    if (!pedidoAtualizado || pedidoAtualizado.length === 0) {
+      throw new Error('Pedido não encontrado após atualização');
+    }
+
+    res.json({ success: true, pedido: pedidoAtualizado[0] });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -1605,28 +1735,42 @@ router.put('/pedidos/:pedidoId/itens/:itemId/aprovar', async (req, res) => {
     // Determinar o novo status baseado no status atual
     let novoStatus;
     if (itemAtual.status === 'pendente' || !itemAtual.status) {
-      novoStatus = 'verificando estoque';
-    } else if (itemAtual.status === 'verificando estoque') {
-      novoStatus = 'aprovado';
+      novoStatus = 'aguardando aprovação de estoque';
+    } else if (itemAtual.status === 'aguardando aprovação de estoque') {
+      novoStatus = 'Produto autorizado';
     } else {
-      novoStatus = 'aprovado';
+      novoStatus = 'Produto autorizado';
     }
 
-    // Atualizar status do item
-    const { data, error } = await supabase
+    // Atualizar status do item - NUNCA usar .single() após update
+    const { error: updateError } = await supabase
       .from('pedido_itens')
       .update({ status: novoStatus })
       .eq('id', itemId)
-      .eq('pedido_id', pedidoId)
-      .select()
-      .single();
+      .eq('pedido_id', pedidoId);
 
-    if (error) throw error;
+    if (updateError) throw updateError;
+
+    // Aguardar um pouco para garantir que o update foi commitado
+    await new Promise(resolve => setTimeout(resolve, 50));
+
+    // Buscar item atualizado separadamente
+    const { data: itemAtualizado, error: fetchError } = await supabase
+      .from('pedido_itens')
+      .select('*')
+      .eq('id', itemId)
+      .eq('pedido_id', pedidoId)
+      .limit(1);
+
+    if (fetchError) throw fetchError;
+    if (!itemAtualizado || itemAtualizado.length === 0) {
+      throw new Error('Item não encontrado após atualização');
+    }
 
     // 🔒 CÓDIGO PROTEGIDO - NUNCA REMOVER
     // Lógica de redução de estoque ao aprovar item - Ver: INVENTARIO_CODIGO_PROTEGIDO.md
-    // Se o status mudou para 'aprovado', reduzir estoque do produto
-    if (novoStatus === 'aprovado' && itemAtual.produto_id) {
+    // Se o status mudou para 'Produto autorizado', reduzir estoque do produto
+    if (novoStatus === 'Produto autorizado' && itemAtual.produto_id) {
       // Buscar produto atual
       const { data: produto, error: errorProduto } = await supabase
         .from('produtos')
@@ -1647,9 +1791,11 @@ router.put('/pedidos/:pedidoId/itens/:itemId/aprovar', async (req, res) => {
           })
           .eq('id', itemAtual.produto_id);
       }
+
+      // NÃO mudar status do pedido - status fica apenas nos itens
     }
 
-    res.json({ success: true, item: data });
+    res.json({ success: true, item: itemAtualizado[0] });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -1681,16 +1827,87 @@ router.put('/pedidos/:pedidoId/itens/:itemId/rejeitar', async (req, res) => {
       novoStatus = 'rejeitado';
     }
 
-    const { data, error } = await supabase
+    // Atualizar status do item - NUNCA usar .single() após update
+    const { error: updateError } = await supabase
       .from('pedido_itens')
       .update({ status: novoStatus })
       .eq('id', itemId)
+      .eq('pedido_id', pedidoId);
+
+    if (updateError) throw updateError;
+
+    // Aguardar um pouco para garantir que o update foi commitado
+    await new Promise(resolve => setTimeout(resolve, 50));
+
+    // Buscar item atualizado separadamente
+    const { data: itemAtualizado, error: fetchError } = await supabase
+      .from('pedido_itens')
+      .select('*')
+      .eq('id', itemId)
       .eq('pedido_id', pedidoId)
-      .select()
+      .limit(1);
+
+    if (fetchError) throw fetchError;
+    if (!itemAtualizado || itemAtualizado.length === 0) {
+      throw new Error('Item não encontrado após atualização');
+    }
+
+    res.json({ success: true, item: itemAtualizado[0] });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Excluir item do pedido
+router.delete('/pedidos/:pedidoId/itens/:itemId', async (req, res) => {
+  try {
+    const { pedidoId, itemId } = req.params;
+    
+    // Verificar se o item existe
+    const { data: itemAtual, error: errorBuscar } = await supabase
+      .from('pedido_itens')
+      .select('id, produto_id, quantidade, status')
+      .eq('id', itemId)
+      .eq('pedido_id', pedidoId)
       .single();
 
-    if (error) throw error;
-    res.json({ success: true, item: data });
+    if (errorBuscar) throw errorBuscar;
+    if (!itemAtual) {
+      return res.status(404).json({ error: 'Item não encontrado' });
+    }
+
+    // Se o item estava autorizado, devolver o estoque
+    if (itemAtual.status === 'Produto autorizado' && itemAtual.produto_id) {
+      const { data: produto, error: errorProduto } = await supabase
+        .from('produtos')
+        .select('estoque, ativo')
+        .eq('id', itemAtual.produto_id)
+        .single();
+
+      if (!errorProduto && produto) {
+        const novoEstoque = (produto.estoque || 0) + (itemAtual.quantidade || 0);
+        const novoAtivo = novoEstoque > 0;
+
+        await supabase
+          .from('produtos')
+          .update({ 
+            estoque: novoEstoque,
+            ativo: novoAtivo
+          })
+          .eq('id', itemAtual.produto_id);
+      }
+    }
+
+    // Excluir o item
+    const { error: deleteError } = await supabase
+      .from('pedido_itens')
+      .delete()
+      .eq('id', itemId)
+      .eq('pedido_id', pedidoId);
+
+    if (deleteError) throw deleteError;
+
+    res.json({ success: true, message: 'Item excluído com sucesso' });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

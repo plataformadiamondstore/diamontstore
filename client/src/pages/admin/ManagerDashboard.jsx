@@ -50,13 +50,47 @@ export default function ManagerDashboard() {
   const loadPedidos = async () => {
     setLoading(true);
     try {
+      // Não enviar filtro de status para o backend - vamos filtrar no frontend baseado nos itens
+      const { status, ...filtersSemStatus } = filters;
       const response = await api.get('/admin/pedidos', {
         params: {
           empresa_id: user.empresa_id,
-          ...filters
+          ...filtersSemStatus
         }
       });
-      setPedidos(response.data);
+      
+      // Filtrar no frontend baseado nos status dos itens
+      let pedidosFiltrados = response.data || [];
+      
+      if (status) {
+        pedidosFiltrados = pedidosFiltrados.filter(pedido => {
+          if (!pedido.pedido_itens || pedido.pedido_itens.length === 0) {
+            // Se não tem itens, usar status do pedido como fallback
+            return pedido.status === status;
+          }
+          
+          // Filtrar baseado nos status dos itens
+          switch (status) {
+            case 'pendente':
+              return pedido.pedido_itens.some(item => item.status === 'pendente' || !item.status);
+            case 'aprovado':
+              return pedido.pedido_itens.some(item => item.status === 'Produto autorizado' || item.status === 'aprovado');
+            case 'rejeitado':
+              return pedido.pedido_itens.some(item => item.status === 'rejeitado');
+            case 'aguardando aprovação de estoque':
+              return pedido.pedido_itens.some(item => 
+                item.status === 'aguardando aprovação de estoque' || 
+                item.status === 'verificando estoque'
+              );
+            case 'produto sem estoque':
+              return pedido.pedido_itens.some(item => item.status === 'produto sem estoque');
+            default:
+              return true;
+          }
+        });
+      }
+      
+      setPedidos(pedidosFiltrados);
     } catch (error) {
       console.error('Erro ao carregar pedidos:', error);
     } finally {
@@ -90,7 +124,9 @@ export default function ManagerDashboard() {
       loadTodosPedidos(); // Recarregar contadores
       alert('Pedido aprovado com sucesso!');
     } catch (error) {
-      alert('Erro ao aprovar pedido');
+      console.error('Erro ao aprovar pedido:', error);
+      const errorMessage = error.response?.data?.error || error.message || 'Erro desconhecido';
+      alert(`Erro ao aprovar pedido: ${errorMessage}`);
     }
   };
 
@@ -102,7 +138,9 @@ export default function ManagerDashboard() {
       loadTodosPedidos(); // Recarregar contadores
       alert('Pedido rejeitado');
     } catch (error) {
-      alert('Erro ao rejeitar pedido');
+      console.error('Erro ao rejeitar pedido:', error);
+      const errorMessage = error.response?.data?.error || error.message || 'Erro desconhecido';
+      alert(`Erro ao rejeitar pedido: ${errorMessage}`);
     }
   };
 
@@ -137,6 +175,9 @@ export default function ManagerDashboard() {
 
     const totalPedido = pedido.pedido_itens?.reduce((sum, item) => sum + (parseFloat(item.preco || 0) * (item.quantidade || 0)), 0) || 0;
 
+    // Normalizar dados antes de criar a template string
+    const { funcionario: func, empresa: emp, clube: clb } = normalizarDadosPedido(pedido);
+
     const content = `
       <html>
         <head>
@@ -167,11 +208,11 @@ export default function ManagerDashboard() {
           <div class="pedido">
             <h2>Pedido #${pedido.id}</h2>
             <div class="info-pedido">
-              <p><strong>Funcionário:</strong> ${pedido.funcionarios?.nome_completo || 'N/A'}</p>
-              <p><strong>Empresa:</strong> ${pedido.funcionarios?.empresas?.nome || 'N/A'}</p>
-              <p><strong>Cadastro Empresa:</strong> ${pedido.funcionarios?.cadastro_empresa || pedido.funcionarios?.empresas?.cadastro_empresa || 'N/A'}</p>
-              <p><strong>Clube:</strong> ${pedido.funcionarios?.clubes?.nome || 'N/A'}</p>
-              <p><strong>Cadastro Clube:</strong> ${pedido.funcionarios?.cadastro_clube || pedido.funcionarios?.clubes?.cadastro_clube || 'N/A'}</p>
+              <p><strong>Funcionário:</strong> ${func?.nome_completo || 'N/A'}</p>
+              <p><strong>Empresa:</strong> ${emp?.nome || 'N/A'}</p>
+              ${(func?.cadastro_empresa || emp?.cadastro_empresa) ? `<p><strong>Cadastro Empresa:</strong> ${func?.cadastro_empresa || emp?.cadastro_empresa}</p>` : ''}
+              <p><strong>Clube:</strong> ${clb?.nome || 'N/A'}</p>
+              ${(func?.cadastro_clube || clb?.cadastro_clube) ? `<p><strong>Cadastro Clube:</strong> ${func?.cadastro_clube || clb?.cadastro_clube}</p>` : ''}
               <p><strong>Data:</strong> ${dataFormatada} às ${horaFormatada}</p>
               <p><strong>Status:</strong> ${pedido.status}</p>
             </div>
@@ -252,10 +293,43 @@ export default function ManagerDashboard() {
         return 'bg-red-100 text-red-800';
       case 'verificando estoque':
         return 'bg-blue-100 text-blue-800';
+      case 'aguardando aprovação de estoque':
+        return 'bg-blue-100 text-blue-800';
+      case 'Produto autorizado':
+        return 'bg-green-100 text-green-800';
       case 'produto sem estoque':
         return 'bg-orange-100 text-orange-800';
       default:
         return 'bg-yellow-100 text-yellow-800';
+    }
+  };
+
+  const getStatusText = (status) => {
+    if (!status) return 'Pendente';
+    
+    // Normalizar status (trim e case insensitive)
+    const normalizedStatus = String(status).trim();
+    
+    // Verificar se é "Produto autorizado" (case insensitive)
+    if (normalizedStatus.toLowerCase() === 'produto autorizado') {
+      return 'Produto autorizado';
+    }
+    
+    switch (normalizedStatus.toLowerCase()) {
+      case 'aprovado':
+        return 'Aprovado';
+      case 'rejeitado':
+        return 'Rejeitado';
+      case 'verificando estoque':
+        return 'Verificando Estoque';
+      case 'aguardando aprovação de estoque':
+        return 'Verificando Estoque';
+      case 'produto autorizado':
+        return 'Produto autorizado';
+      case 'produto sem estoque':
+        return 'Produto Sem Estoque';
+      default:
+        return 'Pendente';
     }
   };
 
@@ -271,14 +345,75 @@ export default function ManagerDashboard() {
     });
   };
 
+  // Função robusta para normalizar dados do pedido (conforme documentação SOLUCAO_PROBLEMAS_PEDIDOS_GESTOR.md)
+  const normalizarDadosPedido = (pedido) => {
+    // Normalizar funcionarios (pode vir como array, objeto, null ou undefined)
+    let funcionario = null;
+    if (pedido.funcionarios) {
+      if (Array.isArray(pedido.funcionarios)) {
+        funcionario = pedido.funcionarios.length > 0 ? pedido.funcionarios[0] : null;
+      } else if (typeof pedido.funcionarios === 'object') {
+        funcionario = pedido.funcionarios;
+      }
+    }
+
+    // Normalizar empresas
+    let empresa = null;
+    if (funcionario) {
+      if (Array.isArray(funcionario.empresas)) {
+        empresa = funcionario.empresas.length > 0 ? funcionario.empresas[0] : null;
+      } else if (funcionario.empresas && typeof funcionario.empresas === 'object') {
+        empresa = funcionario.empresas;
+      }
+    }
+
+    // Normalizar clubes
+    let clube = null;
+    if (funcionario) {
+      if (Array.isArray(funcionario.clubes)) {
+        clube = funcionario.clubes.length > 0 ? funcionario.clubes[0] : null;
+      } else if (funcionario.clubes && typeof funcionario.clubes === 'object') {
+        clube = funcionario.clubes;
+      }
+    }
+
+    return {
+      funcionario,
+      empresa,
+      clube
+    };
+  };
+
   if (!user || user.tipo !== 'gestor') return null;
 
-  // Calcular contadores com base em TODOS os pedidos (não filtrados por status)
-  const pedidosPendentes = todosPedidos.filter(p => p.status === 'pendente');
-  const pedidosAprovados = todosPedidos.filter(p => p.status === 'aprovado');
-  const pedidosRejeitados = todosPedidos.filter(p => p.status === 'rejeitado');
-  const pedidosVerificandoEstoque = todosPedidos.filter(p => p.status === 'verificando estoque');
-  const pedidosSemEstoque = todosPedidos.filter(p => p.status === 'produto sem estoque');
+  // Calcular contadores com base nos STATUS DOS ITENS, não do pedido
+  const pedidosPendentes = todosPedidos.filter(p => {
+    if (!p.pedido_itens || p.pedido_itens.length === 0) return p.status === 'pendente';
+    return p.pedido_itens.some(item => item.status === 'pendente' || !item.status);
+  });
+  
+  const pedidosAprovados = todosPedidos.filter(p => {
+    if (!p.pedido_itens || p.pedido_itens.length === 0) return false;
+    return p.pedido_itens.some(item => item.status === 'Produto autorizado' || item.status === 'aprovado');
+  });
+  
+  const pedidosRejeitados = todosPedidos.filter(p => {
+    if (!p.pedido_itens || p.pedido_itens.length === 0) return p.status === 'rejeitado';
+    return p.pedido_itens.some(item => item.status === 'rejeitado');
+  });
+  
+  const pedidosVerificandoEstoque = todosPedidos.filter(p => {
+    if (!p.pedido_itens || p.pedido_itens.length === 0) return false;
+    return p.pedido_itens.some(item => 
+      item.status === 'aguardando aprovação de estoque' || 
+      item.status === 'verificando estoque'
+    );
+  });
+  
+  const pedidosSemEstoque = todosPedidos.filter(p => {
+    if (!p.pedido_itens || p.pedido_itens.length === 0) return p.status === 'produto sem estoque';
+    return p.pedido_itens.some(item => item.status === 'produto sem estoque');
+  });
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -325,7 +460,8 @@ export default function ManagerDashboard() {
               >
                 <option value="">Todos os status</option>
                 <option value="pendente">Pendente</option>
-                <option value="verificando estoque">Verificando Estoque</option>
+                <option value="aguardando aprovação de estoque">Aguardando Aprovação de Estoque</option>
+                <option value="Produto autorizado">Produto Autorizado</option>
                 <option value="aprovado">Aprovado</option>
                 <option value="produto sem estoque">Produto Sem Estoque</option>
                 <option value="rejeitado">Rejeitado</option>
@@ -398,8 +534,21 @@ export default function ManagerDashboard() {
                 <p className="text-2xl font-bold text-yellow-800">{pedidosPendentes.length}</p>
               </div>
               <div 
+                className={`p-4 rounded-lg cursor-pointer transition-all hover:shadow-md ${filters.status === 'aguardando aprovação de estoque' ? 'bg-blue-100 border-2 border-blue-400 shadow-md' : 'bg-blue-50'}`}
+                onClick={() => setFilters({ ...filters, status: filters.status === 'aguardando aprovação de estoque' ? '' : 'aguardando aprovação de estoque' })}
+              >
+                <p className="text-sm text-gray-600">Aguardando Aprovação</p>
+                <p className="text-2xl font-bold text-blue-800">{pedidosVerificandoEstoque.length}</p>
+              </div>
+              <div 
                 className={`p-4 rounded-lg cursor-pointer transition-all hover:shadow-md ${filters.status === 'aprovado' ? 'bg-green-100 border-2 border-green-400 shadow-md' : 'bg-green-50'}`}
-                onClick={() => setFilters({ ...filters, status: filters.status === 'aprovado' ? '' : 'aprovado' })}
+                onClick={() => {
+                  if (filters.status === 'aprovado') {
+                    setFilters({ ...filters, status: '' });
+                  } else {
+                    setFilters({ ...filters, status: 'aprovado' });
+                  }
+                }}
               >
                 <p className="text-sm text-gray-600">Aprovados</p>
                 <p className="text-2xl font-bold text-green-800">{pedidosAprovados.length}</p>
@@ -419,6 +568,9 @@ export default function ManagerDashboard() {
               </div>
             ) : (
               pedidos.map((pedido) => {
+                // Normalizar dados do pedido usando função robusta
+                const { funcionario, empresa, clube } = normalizarDadosPedido(pedido);
+                
                 const total = pedido.pedido_itens?.reduce((sum, item) => {
                   return sum + (parseFloat(item.preco || 0) * item.quantidade);
                 }, 0) || 0;
@@ -442,29 +594,33 @@ export default function ManagerDashboard() {
                           </svg>
                         </div>
                         <p className="text-sm text-gray-600">
-                          <strong>Funcionário:</strong> {pedido.funcionarios?.nome_completo}
+                          <strong>Funcionário:</strong> {funcionario?.nome_completo || 'N/A'}
                         </p>
                         <p className="text-sm text-gray-600">
-                          <strong>Empresa:</strong> {pedido.funcionarios?.empresas?.nome}
+                          <strong>Empresa:</strong> {empresa?.nome || 'N/A'}
                         </p>
+                        {(funcionario?.cadastro_empresa || empresa?.cadastro_empresa) && (
+                          <p className="text-sm text-gray-600">
+                            <strong>Cadastro Empresa:</strong> {funcionario?.cadastro_empresa || empresa?.cadastro_empresa}
+                          </p>
+                        )}
                         <p className="text-sm text-gray-600">
-                          <strong>Cadastro Empresa:</strong> {pedido.funcionarios?.cadastro_empresa}
+                          <strong>Clube:</strong> {clube?.nome || 'N/A'}
                         </p>
-                        <p className="text-sm text-gray-600">
-                          <strong>Clube:</strong> {pedido.funcionarios?.clubes?.nome}
-                        </p>
-                        <p className="text-sm text-gray-600">
-                          <strong>Cadastro Clube:</strong> {pedido.funcionarios?.cadastro_clube}
-                        </p>
+                        {(funcionario?.cadastro_clube || clube?.cadastro_clube) && (
+                          <p className="text-sm text-gray-600">
+                            <strong>Cadastro Clube:</strong> {funcionario?.cadastro_clube || clube?.cadastro_clube}
+                          </p>
+                        )}
                         <p className="text-sm text-gray-600">
                           {new Date(pedido.created_at).toLocaleString('pt-BR')}
                         </p>
                       </div>
                       <div className="flex items-center gap-4" onClick={(e) => e.stopPropagation()}>
-                        <span className={`px-3 py-1 rounded-full text-sm font-semibold ${getStatusColor(pedido.status)}`}>
-                          {pedido.status}
-                        </span>
-                        {pedido.status === 'aprovado' && (
+                        {/* Verificar se tem algum item aprovado para mostrar botão de imprimir */}
+                        {pedido.pedido_itens?.some(item => 
+                          item.status === 'Produto autorizado' || item.status === 'aprovado'
+                        ) && (
                           <button
                             onClick={() => handlePrint(pedido)}
                             className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600"
@@ -478,20 +634,26 @@ export default function ManagerDashboard() {
                     {expandedPedidos.has(pedido.id) && (
                       <>
                         <div className="space-y-2 mb-4">
-                          {pedido.pedido_itens?.map((item) => (
-                            <div key={item.id} className="flex justify-between items-center py-2 border-b">
-                              <div>
-                                <p className="font-medium">{item.produtos?.nome}</p>
-                                {item.variacao && (
-                                  <p className="text-sm text-gray-600">Variação: {item.variacao}</p>
-                                )}
-                                <p className="text-sm text-gray-600">Quantidade: {item.quantidade}</p>
+                          {pedido.pedido_itens?.map((item) => {
+                            const itemStatus = item.status || 'pendente';
+                            return (
+                              <div key={item.id} className="flex justify-between items-center py-2 border-b">
+                                <div className="flex-1">
+                                  <p className="font-medium">{item.produtos?.nome}</p>
+                                  {item.variacao && (
+                                    <p className="text-sm text-gray-600">Variação: {item.variacao}</p>
+                                  )}
+                                  <p className="text-sm text-gray-600">Quantidade: {item.quantidade}</p>
+                                  <span className={`inline-block mt-1 px-2 py-1 rounded-full text-xs font-semibold ${getStatusColor(itemStatus)}`}>
+                                    {getStatusText(itemStatus)}
+                                  </span>
+                                </div>
+                                <p className="font-semibold">
+                                  R$ {(parseFloat(item.preco || 0) * item.quantidade).toFixed(2).replace('.', ',')}
+                                </p>
                               </div>
-                              <p className="font-semibold">
-                                R$ {(parseFloat(item.preco || 0) * item.quantidade).toFixed(2).replace('.', ',')}
-                              </p>
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
 
                         <div className="flex justify-between items-center">

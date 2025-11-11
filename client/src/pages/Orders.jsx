@@ -38,6 +38,10 @@ export default function Orders() {
         return 'bg-red-100 text-red-800';
       case 'verificando estoque':
         return 'bg-blue-100 text-blue-800';
+      case 'aguardando aprovação de estoque':
+        return 'bg-blue-100 text-blue-800';
+      case 'Produto autorizado':
+        return 'bg-green-100 text-green-800';
       case 'produto sem estoque':
         return 'bg-orange-100 text-orange-800';
       default:
@@ -46,13 +50,27 @@ export default function Orders() {
   };
 
   const getStatusText = (status) => {
-    switch (status) {
+    if (!status) return 'Pendente';
+    
+    // Normalizar status (trim e case insensitive)
+    const normalizedStatus = String(status).trim();
+    
+    // Verificar se é "Produto autorizado" (case insensitive)
+    if (normalizedStatus.toLowerCase() === 'produto autorizado') {
+      return 'Produto autorizado';
+    }
+    
+    switch (normalizedStatus) {
       case 'aprovado':
         return 'Aprovado';
       case 'rejeitado':
         return 'Rejeitado';
       case 'verificando estoque':
         return 'Verificando Estoque';
+      case 'aguardando aprovação de estoque':
+        return 'Verificando Estoque'; // Mostrar "Verificando Estoque" quando gestor aprova
+      case 'Produto autorizado':
+        return 'Produto autorizado';
       case 'produto sem estoque':
         return 'Produto Sem Estoque';
       default:
@@ -140,30 +158,31 @@ export default function Orders() {
                         {new Date(order.created_at).toLocaleDateString('pt-BR')}
                       </p>
                     </div>
-                    <div onClick={(e) => e.stopPropagation()}>
-                      <span className={`px-3 py-1 rounded-full text-sm font-semibold ${getStatusColor(order.status)}`}>
-                        {getStatusText(order.status)}
-                      </span>
-                    </div>
                   </div>
 
                   {expandedPedidos.has(order.id) && (
                     <>
                       <div className="space-y-2 mb-4">
-                        {order.pedido_itens?.map((item) => (
-                          <div key={item.id} className="flex justify-between items-center py-2 border-b">
-                            <div>
-                              <p className="font-medium">{item.produtos?.nome}</p>
-                              {item.variacao && (
-                                <p className="text-sm text-gray-600">Variação: {item.variacao}</p>
-                              )}
-                              <p className="text-sm text-gray-600">Quantidade: {item.quantidade}</p>
+                        {order.pedido_itens?.map((item) => {
+                          const itemStatus = item.status || 'pendente';
+                          return (
+                            <div key={item.id} className="flex justify-between items-center py-2 border-b">
+                              <div className="flex-1">
+                                <p className="font-medium">{item.produtos?.nome}</p>
+                                {item.variacao && (
+                                  <p className="text-sm text-gray-600">Variação: {item.variacao}</p>
+                                )}
+                                <p className="text-sm text-gray-600">Quantidade: {item.quantidade}</p>
+                                <span className={`inline-block mt-1 px-2 py-1 rounded-full text-xs font-semibold ${getStatusColor(itemStatus)}`}>
+                                  {getStatusText(itemStatus)}
+                                </span>
+                              </div>
+                              <p className="font-semibold">
+                                R$ {(parseFloat(item.preco || 0) * item.quantidade).toFixed(2).replace('.', ',')}
+                              </p>
                             </div>
-                            <p className="font-semibold">
-                              R$ {(parseFloat(item.preco || 0) * item.quantidade).toFixed(2).replace('.', ',')}
-                            </p>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
 
                       <div className="flex justify-end">

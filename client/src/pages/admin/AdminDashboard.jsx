@@ -1943,14 +1943,15 @@ export default function AdminDashboard() {
                           <div>
                             <p className="text-xs text-gray-500 mb-1">Empresa</p>
                             <p className="font-semibold text-gray-900">{empresa.nome}</p>
-                            <p className="text-sm text-gray-600">{empresa.cadastro_empresa}</p>
                 </div>
                           <div>
                             <p className="text-xs text-gray-500 mb-1">Clube</p>
                             {primeiroClube ? (
                               <>
                                 <p className="font-medium text-gray-900">{primeiroClube.nome}</p>
-                                <p className="text-sm text-gray-600">{primeiroClube.cadastro_clube}</p>
+                                {primeiroClube.cadastro_clube && primeiroClube.cadastro_clube.trim() !== '' && (
+                                  <p className="text-sm text-gray-600">{primeiroClube.cadastro_clube}</p>
+                                )}
                               </>
                             ) : (
                               <p className="text-sm text-gray-400 italic">-</p>
@@ -3511,6 +3512,8 @@ export default function AdminDashboard() {
                               const statusColors = {
                                 pendente: 'bg-yellow-100 text-yellow-800',
                                 'verificando estoque': 'bg-blue-100 text-blue-800',
+                                'aguardando aprovação de estoque': 'bg-blue-100 text-blue-800',
+                                'Produto autorizado': 'bg-green-100 text-green-800',
                                 aprovado: 'bg-green-100 text-green-800',
                                 'produto sem estoque': 'bg-orange-100 text-orange-800',
                                 rejeitado: 'bg-red-100 text-red-800'
@@ -3536,68 +3539,6 @@ export default function AdminDashboard() {
                                         <p className="font-semibold text-gray-800">
                                           Pedido #{pedido.id}
                                         </p>
-                                        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                                          statusColors[pedido.status] || statusColors.pendente
-                                        }`}>
-                                          {pedido.status?.toUpperCase() || 'PENDENTE'}
-                                        </span>
-                                        <div className="flex gap-2 ml-auto" onClick={(e) => e.stopPropagation()}>
-                                          {(pedido.status === 'pendente' || pedido.status === 'verificando estoque') && (
-                                            <>
-                                              <button
-                                                onClick={async (e) => {
-                                                  e.stopPropagation();
-                                                  if (confirm('Deseja aprovar este pedido?')) {
-                                                    try {
-                                                      await api.put(`/admin/pedidos/${pedido.id}/aprovar`);
-                                                      loadData();
-                                                      alert('Pedido aprovado com sucesso!');
-                                                    } catch (error) {
-                                                      alert('Erro ao aprovar pedido');
-                                                    }
-                                                  }
-                                                }}
-                                                className="px-3 py-1 bg-green-500 text-white rounded text-xs font-semibold hover:bg-green-600 transition-colors"
-                                              >
-                                                Aprovar
-                                              </button>
-                                              <button
-                                                onClick={async (e) => {
-                                                  e.stopPropagation();
-                                                  if (confirm('Deseja rejeitar este pedido?')) {
-                                                    try {
-                                                      await api.put(`/admin/pedidos/${pedido.id}/rejeitar`);
-                                                      loadData();
-                                                      alert('Pedido rejeitado');
-                                                    } catch (error) {
-                                                      alert('Erro ao rejeitar pedido');
-                                                    }
-                                                  }
-                                                }}
-                                                className="px-3 py-1 bg-red-500 text-white rounded text-xs font-semibold hover:bg-red-600 transition-colors"
-                                              >
-                                                Rejeitar
-                                              </button>
-                                            </>
-                                          )}
-                                          <button
-                                            onClick={async (e) => {
-                                              e.stopPropagation();
-                                              if (confirm('Tem certeza que deseja excluir este pedido? Esta ação não pode ser desfeita.')) {
-                                                try {
-                                                  await api.delete(`/admin/pedidos/${pedido.id}`);
-                                                  loadData();
-                                                  alert('Pedido excluído com sucesso');
-                                                } catch (error) {
-                                                  alert('Erro ao excluir pedido: ' + (error.response?.data?.error || error.message));
-                                                }
-                                              }
-                                            }}
-                                            className="px-3 py-1 bg-gray-600 text-white rounded text-xs font-semibold hover:bg-gray-700 transition-colors"
-                                          >
-                                            Excluir
-                                          </button>
-                                        </div>
                                       </div>
                                       <p className="text-sm text-gray-600">
                                         Funcionário: {pedido.funcionarios?.nome_completo || 'N/A'}
@@ -3666,6 +3607,8 @@ export default function AdminDashboard() {
                                             const itemStatusColors = {
                                               pendente: 'bg-yellow-100 text-yellow-800',
                                               'verificando estoque': 'bg-blue-100 text-blue-800',
+                                              'aguardando aprovação de estoque': 'bg-blue-100 text-blue-800',
+                                              'Produto autorizado': 'bg-green-100 text-green-800',
                                               aprovado: 'bg-green-100 text-green-800',
                                               'produto sem estoque': 'bg-orange-100 text-orange-800',
                                               rejeitado: 'bg-red-100 text-red-800'
@@ -3681,7 +3624,11 @@ export default function AdminDashboard() {
                                                     <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
                                                       itemStatusColors[itemStatus] || itemStatusColors.pendente
                                                     }`}>
-                                                      {itemStatus?.toUpperCase() || 'PENDENTE'}
+                                                      {itemStatus === 'aguardando aprovação de estoque' ? 'AGUARDANDO APROVAÇÃO' :
+                                                       itemStatus === 'Produto autorizado' ? 'AUTORIZADO' :
+                                                       itemStatus === 'verificando estoque' ? 'VERIFICANDO ESTOQUE' :
+                                                       itemStatus === 'produto sem estoque' ? 'SEM ESTOQUE' :
+                                                       itemStatus?.toUpperCase() || 'PENDENTE'}
                                                     </span>
                                                   </div>
                                                   {item.variacao && (
@@ -3700,7 +3647,7 @@ export default function AdminDashboard() {
                                                       = R$ {(item.quantidade * item.preco).toFixed(2).replace('.', ',')}
                                                     </p>
                                                   </div>
-                                                  {(itemStatus === 'pendente' || itemStatus === 'verificando estoque') && (
+                                                  {(itemStatus === 'pendente' || itemStatus === 'verificando estoque' || itemStatus === 'aguardando aprovação de estoque') && (
                                                     <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
                                                       <button
                                                         onClick={async (e) => {
@@ -3711,7 +3658,9 @@ export default function AdminDashboard() {
                                                               loadData();
                                                               alert('Item aprovado com sucesso!');
                                                             } catch (error) {
-                                                              alert('Erro ao aprovar item');
+                                                              console.error('Erro ao aprovar item:', error);
+                                                              const errorMessage = error.response?.data?.error || error.message || 'Erro desconhecido';
+                                                              alert(`Erro ao aprovar item: ${errorMessage}`);
                                                             }
                                                           }
                                                         }}
@@ -3728,13 +3677,34 @@ export default function AdminDashboard() {
                                                               loadData();
                                                               alert('Item rejeitado');
                                                             } catch (error) {
-                                                              alert('Erro ao rejeitar item');
+                                                              console.error('Erro ao rejeitar item:', error);
+                                                              const errorMessage = error.response?.data?.error || error.message || 'Erro desconhecido';
+                                                              alert(`Erro ao rejeitar item: ${errorMessage}`);
                                                             }
                                                           }
                                                         }}
                                                         className="px-2 py-1 bg-red-500 text-white rounded text-xs font-semibold hover:bg-red-600 transition-colors"
                                                       >
                                                         Rejeitar
+                                                      </button>
+                                                      <button
+                                                        onClick={async (e) => {
+                                                          e.stopPropagation();
+                                                          if (confirm('Tem certeza que deseja excluir este item? Esta ação não pode ser desfeita.')) {
+                                                            try {
+                                                              await api.delete(`/admin/pedidos/${pedido.id}/itens/${item.id}`);
+                                                              loadData();
+                                                              alert('Item excluído com sucesso');
+                                                            } catch (error) {
+                                                              console.error('Erro ao excluir item:', error);
+                                                              const errorMessage = error.response?.data?.error || error.message || 'Erro desconhecido';
+                                                              alert(`Erro ao excluir item: ${errorMessage}`);
+                                                            }
+                                                          }
+                                                        }}
+                                                        className="px-2 py-1 bg-gray-600 text-white rounded text-xs font-semibold hover:bg-gray-700 transition-colors"
+                                                      >
+                                                        Excluir
                                                       </button>
                                                     </div>
                                                   )}

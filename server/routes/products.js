@@ -10,9 +10,12 @@ router.get('/', async (req, res) => {
     const offset = (page - 1) * limit;
 
     // Buscar produtos sem imagens primeiro (mais confiável)
+    // Filtrar apenas produtos ativos e com estoque > 0 (para funcionários)
     let query = supabase
       .from('produtos')
       .select('*')
+      .eq('ativo', true)
+      .gt('estoque', 0)
       .order('id', { ascending: true })
       .range(offset, offset + limit - 1);
 
@@ -67,7 +70,12 @@ router.get('/', async (req, res) => {
     );
 
     // Buscar total de produtos para paginação
-    let countQuery = supabase.from('produtos').select('*', { count: 'exact', head: true });
+    // Filtrar apenas produtos ativos e com estoque > 0 (para funcionários)
+    let countQuery = supabase
+      .from('produtos')
+      .select('*', { count: 'exact', head: true })
+      .eq('ativo', true)
+      .gt('estoque', 0);
     if (categoria) countQuery = countQuery.eq('categoria', categoria);
     if (marca) countQuery = countQuery.eq('marca', marca);
     if (nome) countQuery = countQuery.ilike('nome', `%${nome}%`);
@@ -92,9 +100,12 @@ router.get('/', async (req, res) => {
 // Buscar categorias
 router.get('/categorias', async (req, res) => {
   try {
+    // Filtrar apenas produtos ativos e com estoque > 0 (para funcionários)
     const { data, error } = await supabase
       .from('produtos')
       .select('categoria')
+      .eq('ativo', true)
+      .gt('estoque', 0)
       .order('categoria');
 
     if (error) throw error;
@@ -109,9 +120,12 @@ router.get('/categorias', async (req, res) => {
 // Buscar marcas
 router.get('/marcas', async (req, res) => {
   try {
+    // Filtrar apenas produtos ativos e com estoque > 0 (para funcionários)
     const { data, error } = await supabase
       .from('produtos')
       .select('marca')
+      .eq('ativo', true)
+      .gt('estoque', 0)
       .order('marca');
 
     if (error) throw error;
