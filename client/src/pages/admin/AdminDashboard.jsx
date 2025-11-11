@@ -170,7 +170,10 @@ export default function AdminDashboard() {
         setGestores(gestoresRes.data || []);
       } else if (activeTab === 'produtos') {
         const [prodRes, catRes, marRes] = await Promise.all([
-          api.get('/products'),
+          api.get('/admin/produtos', { params: { page: 1, limit: 1000 } }).catch(err => {
+            console.error('Erro ao buscar produtos:', err);
+            return { data: { produtos: [], paginacao: { total: 0 } } };
+          }),
           api.get('/admin/cadastros/categorias'),
           api.get('/admin/cadastros/marcas')
         ]);
@@ -188,9 +191,12 @@ export default function AdminDashboard() {
           setPedidos([]);
         }
       } else if (activeTab === 'cadastros') {
-        // Carregar produtos, categorias, marcas e tamanhos
+        // Carregar produtos (incluindo desabilitados), categorias, marcas e tamanhos
         const [prodRes, catRes, marRes, tamRes] = await Promise.all([
-          api.get('/products'),
+          api.get('/admin/produtos', { params: { page: 1, limit: 1000 } }).catch(err => {
+            console.error('Erro ao buscar produtos:', err);
+            return { data: { produtos: [], paginacao: { total: 0 } } };
+          }),
           api.get('/admin/cadastros/categorias'),
           api.get('/admin/cadastros/marcas'),
           api.get('/admin/cadastros/tamanhos')
@@ -1023,6 +1029,24 @@ export default function AdminDashboard() {
       alert('Tamanho excluído!');
     } catch (error) {
       alert('Erro ao excluir tamanho');
+    }
+  };
+
+  const handleToggleAtivo = async (id, ativoAtual) => {
+    try {
+      const novoStatus = !ativoAtual;
+      const response = await api.put(`/admin/produtos/${id}/toggle-ativo`, { ativo: novoStatus });
+      
+      if (response.data && response.data.success === true) {
+        loadData();
+        alert(`Produto ${novoStatus ? 'habilitado' : 'desabilitado'} com sucesso!`);
+      } else {
+        throw new Error(response.data?.error || 'Erro ao alterar status do produto');
+      }
+    } catch (error) {
+      console.error('Erro ao alterar status do produto:', error);
+      const errorMessage = error.response?.data?.error || error.message || 'Erro ao alterar status do produto';
+      alert('Erro ao alterar status do produto: ' + errorMessage);
     }
   };
 
@@ -2249,7 +2273,14 @@ export default function AdminDashboard() {
                       </div>
                     )}
                   </div>
-                  <h3 className="text-lg font-semibold mb-2">{produto.nome}</h3>
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-lg font-semibold">{produto.nome}</h3>
+                    {produto.ativo === false && (
+                      <span className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded font-semibold">
+                        DESABILITADO
+                      </span>
+                    )}
+                  </div>
                   <p className="text-sm text-gray-600 mb-2">
                     {produto.categoria && <span className="mr-2">{produto.categoria}</span>}
                     {produto.marca && <span>• {produto.marca}</span>}
@@ -2283,19 +2314,39 @@ export default function AdminDashboard() {
                       <span className="text-sm font-semibold text-gray-700">{produto.estoque !== undefined && produto.estoque !== null ? produto.estoque : 0}</span>
                     </div>
                   </div>
-                  <div className="flex gap-2 mt-4">
-                    <button
-                      onClick={() => handleEditProduto(produto)}
-                      className="flex-1 bg-primary-purple text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors"
-                    >
-                      Editar
-                    </button>
-                    <button
-                      onClick={() => handleDeleteProduto(produto.id)}
-                      className="flex-1 bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition-colors"
-                    >
-                      Excluir
-                    </button>
+                  <div className="flex flex-col gap-2 mt-4">
+                    <div className="flex items-center justify-between bg-gray-100 p-2 rounded-lg">
+                      <span className="text-sm font-medium text-gray-700">Status:</span>
+                      <button
+                        onClick={() => handleToggleAtivo(produto.id, produto.ativo !== false)}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                          produto.ativo !== false ? 'bg-green-500' : 'bg-gray-300'
+                        }`}
+                      >
+                        <span
+                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                            produto.ativo !== false ? 'translate-x-6' : 'translate-x-1'
+                          }`}
+                        />
+                      </button>
+                      <span className="text-xs font-semibold text-gray-600">
+                        {produto.ativo !== false ? 'ON' : 'OFF'}
+                      </span>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleEditProduto(produto)}
+                        className="flex-1 bg-primary-purple text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors"
+                      >
+                        Editar
+                      </button>
+                      <button
+                        onClick={() => handleDeleteProduto(produto.id)}
+                        className="flex-1 bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition-colors"
+                      >
+                        Excluir
+                      </button>
+                    </div>
                   </div>
                 </div>
                     ))}

@@ -1335,6 +1335,104 @@ router.delete('/produtos/:id/imagens/:imagemId', async (req, res) => {
   }
 });
 
+// Listar todos os produtos (incluindo desabilitados) para admin
+router.get('/produtos', async (req, res) => {
+  try {
+    const { page = 1, limit = 1000 } = req.query;
+    const offset = (page - 1) * limit;
+
+    // Buscar TODOS os produtos (incluindo desabilitados)
+    let query = supabase
+      .from('produtos')
+      .select('*')
+      .order('id', { ascending: true })
+      .range(offset, offset + limit - 1);
+
+    const { data: produtosData, error: produtosError } = await query;
+
+    if (produtosError) throw produtosError;
+
+    // Buscar imagens para cada produto
+    const produtosComImagens = await Promise.all(
+      (produtosData || []).map(async (produto) => {
+        try {
+          const { data: imagensData, error: imagensError } = await supabase
+            .from('produto_imagens')
+            .select('*')
+            .eq('produto_id', produto.id)
+            .order('ordem', { ascending: true });
+
+          if (imagensError) {
+            console.warn(`Erro ao buscar imagens do produto ${produto.id}:`, imagensError);
+          }
+
+          const imagensArray = Array.isArray(imagensData) ? imagensData : [];
+          
+          return {
+            ...produto,
+            produto_imagens: imagensArray.map(img => ({
+              id: img.id,
+              produto_id: img.produto_id,
+              url_imagem: img.url_imagem,
+              ordem: img.ordem || 0,
+              created_at: img.created_at
+            }))
+          };
+        } catch (err) {
+          console.error(`Erro ao processar imagens do produto ${produto.id}:`, err);
+          return {
+            ...produto,
+            produto_imagens: []
+          };
+        }
+      })
+    );
+
+    // Buscar total de produtos
+    const { count: total } = await supabase
+      .from('produtos')
+      .select('*', { count: 'exact', head: true });
+
+    res.json({
+      produtos: produtosComImagens || [],
+      paginacao: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total: total || 0,
+        totalPages: Math.ceil((total || 0) / limit)
+      }
+    });
+  } catch (error) {
+    console.error('Erro ao listar produtos:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Toggle ativo/inativo do produto
+router.put('/produtos/:id/toggle-ativo', async (req, res) => {
+  try {
+    const { ativo } = req.body;
+    const produtoId = req.params.id;
+
+    if (ativo === undefined || ativo === null) {
+      return res.status(400).json({ error: 'Campo ativo é obrigatório' });
+    }
+
+    const { data, error } = await supabase
+      .from('produtos')
+      .update({ ativo: ativo === true || ativo === 'true' })
+      .eq('id', produtoId)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    res.json({ success: true, produto: data });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 router.delete('/produtos/:id', async (req, res) => {
   try {
     const { error } = await supabase
