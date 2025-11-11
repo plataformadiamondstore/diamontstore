@@ -1561,14 +1561,28 @@ router.put('/pedidos/:id/aprovar', async (req, res) => {
       return res.status(404).json({ error: 'Nenhum item encontrado no pedido' });
     }
 
-    // Atualizar TODOS os itens para "aguardando aprovação de estoque"
+    // Atualizar TODOS os itens pendentes para "aguardando aprovação de estoque"
+    // Atualizar apenas itens que estão pendentes ou null (não atualizar itens já aprovados/rejeitados)
     const { error: updateError } = await supabase
       .from('pedido_itens')
       .update({ status: 'aguardando aprovação de estoque' })
       .eq('pedido_id', req.params.id)
       .in('status', ['pendente', null]);
-
-    if (updateError) throw updateError;
+    
+    // Verificar se algum item foi atualizado
+    if (updateError) {
+      console.error('Erro ao atualizar itens:', updateError);
+      throw updateError;
+    }
+    
+    // Verificar quantos itens foram atualizados
+    const itensPendentes = itens.filter(item => !item.status || item.status === 'pendente');
+    console.log('Itens pendentes encontrados:', itensPendentes.length);
+    console.log('Total de itens no pedido:', itens.length);
+    
+    if (itensPendentes.length === 0) {
+      return res.status(400).json({ error: 'Nenhum item pendente encontrado para aprovar' });
+    }
 
     // NÃO atualizar status do pedido - status fica apenas nos itens
 

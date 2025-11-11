@@ -119,12 +119,15 @@ export default function ManagerDashboard() {
   const handleAprovar = async (pedidoId) => {
     if (!confirm('Deseja aprovar este pedido?')) return;
     try {
-      await api.put(`/admin/pedidos/${pedidoId}/aprovar`);
-      loadPedidos();
-      loadTodosPedidos(); // Recarregar contadores
+      console.log('Aprovando pedido:', pedidoId);
+      const response = await api.put(`/admin/pedidos/${pedidoId}/aprovar`);
+      console.log('Resposta da aprovação:', response.data);
+      await loadPedidos();
+      await loadTodosPedidos(); // Recarregar contadores
       alert('Pedido aprovado com sucesso!');
     } catch (error) {
       console.error('Erro ao aprovar pedido:', error);
+      console.error('Detalhes do erro:', error.response?.data);
       const errorMessage = error.response?.data?.error || error.message || 'Erro desconhecido';
       alert(`Erro ao aprovar pedido: ${errorMessage}`);
     }
@@ -663,7 +666,9 @@ export default function ManagerDashboard() {
                               R$ {total.toFixed(2).replace('.', ',')}
                             </p>
                           </div>
-                          {(pedido.status === 'pendente' || pedido.status === 'verificando estoque') && (
+                          {pedido.pedido_itens?.some(item => 
+                            !item.status || item.status === 'pendente' || item.status === 'verificando estoque'
+                          ) && (
                             <div className="flex gap-2">
                               <button
                                 onClick={() => handleAprovar(pedido.id)}
