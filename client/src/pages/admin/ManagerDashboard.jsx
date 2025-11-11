@@ -217,7 +217,6 @@ export default function ManagerDashboard() {
               <p><strong>Clube:</strong> ${clb?.nome || 'N/A'}</p>
               ${(func?.cadastro_clube || clb?.cadastro_clube) ? `<p><strong>Cadastro Clube:</strong> ${func?.cadastro_clube || clb?.cadastro_clube}</p>` : ''}
               <p><strong>Data:</strong> ${dataFormatada} às ${horaFormatada}</p>
-              <p><strong>Status:</strong> ${pedido.status}</p>
             </div>
             <table>
               <tr>
@@ -226,7 +225,6 @@ export default function ManagerDashboard() {
                 <th>Variação</th>
                 <th>Quantidade</th>
                 <th>Preço Unit.</th>
-                <th>Subtotal</th>
               </tr>
               ${pedido.pedido_itens?.map(item => {
                 const sku = item.produtos?.sku || item.produtos?.codigo || item.sku || '-';
@@ -237,10 +235,9 @@ export default function ManagerDashboard() {
                     <td>${item.variacao || '-'}</td>
                     <td><strong>${item.quantidade || 0}</strong></td>
                     <td>R$ ${parseFloat(item.preco || 0).toFixed(2).replace('.', ',')}</td>
-                    <td>R$ ${(parseFloat(item.preco || 0) * (item.quantidade || 0)).toFixed(2).replace('.', ',')}</td>
                   </tr>
                 `;
-              }).join('') || '<tr><td colspan="6" style="text-align: center;">Nenhum item encontrado</td></tr>'}
+              }).join('') || '<tr><td colspan="5" style="text-align: center;">Nenhum item encontrado</td></tr>'}
             </table>
             <div style="margin-top: 10px; text-align: right; font-size: 12px; font-weight: bold;">
               <p><strong>Total:</strong> R$ ${totalPedido.toFixed(2).replace('.', ',')}</p>
@@ -322,7 +319,7 @@ export default function ManagerDashboard() {
       case 'aprovado':
         return 'Aprovado';
       case 'rejeitado':
-        return 'Rejeitado';
+        return 'Sem estoque'; // Na tela do gestor, "rejeitado" aparece como "Sem estoque"
       case 'verificando estoque':
         return 'Verificando Estoque';
       case 'aguardando aprovação de estoque':
@@ -521,7 +518,7 @@ export default function ManagerDashboard() {
           </div>
         ) : (
           <div className="space-y-6">
-            <div className="grid grid-cols-4 gap-4 mb-6">
+            <div className="grid grid-cols-5 gap-4 mb-6">
               <div 
                 className={`p-4 rounded-lg cursor-pointer transition-all hover:shadow-md ${filters.status === '' ? 'bg-blue-100 border-2 border-blue-400 shadow-md' : 'bg-blue-50'}`}
                 onClick={() => setFilters({ ...filters, status: '' })}
