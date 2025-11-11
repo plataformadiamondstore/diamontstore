@@ -557,7 +557,7 @@ export default function ManagerDashboard() {
                 className={`p-4 rounded-lg cursor-pointer transition-all hover:shadow-md ${filters.status === 'rejeitado' ? 'bg-red-100 border-2 border-red-400 shadow-md' : 'bg-red-50'}`}
                 onClick={() => setFilters({ ...filters, status: filters.status === 'rejeitado' ? '' : 'rejeitado' })}
               >
-                <p className="text-sm text-gray-600">Rejeitados</p>
+                <p className="text-sm text-gray-600">Sem estoque</p>
                 <p className="text-2xl font-bold text-red-800">{pedidosRejeitados.length}</p>
               </div>
             </div>
@@ -634,7 +634,20 @@ export default function ManagerDashboard() {
                     {expandedPedidos.has(pedido.id) && (
                       <>
                         <div className="space-y-2 mb-4">
-                          {pedido.pedido_itens?.map((item) => {
+                          {pedido.pedido_itens
+                            ?.filter(item => {
+                              // Se o filtro estiver ativo para "rejeitado", mostrar apenas itens rejeitados
+                              if (filters.status === 'rejeitado') {
+                                return item.status === 'rejeitado';
+                              }
+                              // Se o filtro estiver ativo para "aprovado", mostrar apenas itens aprovados (não mostrar rejeitados)
+                              if (filters.status === 'aprovado') {
+                                return item.status === 'Produto autorizado' || item.status === 'aprovado';
+                              }
+                              // Caso contrário, mostrar todos os itens
+                              return true;
+                            })
+                            ?.map((item) => {
                             const itemStatus = item.status || 'pendente';
                             return (
                               <div key={item.id} className="flex justify-between items-center py-2 border-b">
