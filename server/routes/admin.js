@@ -1465,7 +1465,7 @@ router.get('/pedidos', async (req, res) => {
           cadastro_clube,
           empresa_id,
           empresas (id, nome, cadastro_empresa),
-          clubes (nome)
+          clubes (id, nome, cadastro_clube)
         ),
         pedido_itens (
           *,

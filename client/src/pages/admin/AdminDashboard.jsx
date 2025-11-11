@@ -610,13 +610,18 @@ export default function AdminDashboard() {
           quantidadeTotalPedido += quantidade;
         });
         
+        // Buscar cadastro_clube: primeiro do funcionário, depois do clube relacionado
+        const cadastroClubeValue = pedido.funcionarios?.cadastro_clube || pedido.funcionarios?.clubes?.cadastro_clube || 'N/A';
+        // Buscar cadastro_empresa: primeiro do funcionário, depois da empresa relacionada
+        const cadastroEmpresaValue = pedido.funcionarios?.cadastro_empresa || pedido.funcionarios?.empresas?.cadastro_empresa || 'N/A';
+        
         pedidosAgrupados[pedido.id] = {
           pedidoId: pedido.id,
           funcionario: pedido.funcionarios?.nome_completo || 'N/A',
           empresa: pedido.funcionarios?.empresas?.nome || 'N/A',
-          cadastroEmpresa: pedido.funcionarios?.cadastro_empresa || 'N/A',
+          cadastroEmpresa: cadastroEmpresaValue,
           clube: pedido.funcionarios?.clubes?.nome || 'N/A',
-          cadastroClube: pedido.funcionarios?.cadastro_clube || 'N/A',
+          cadastroClube: cadastroClubeValue,
           data: pedido.created_at,
           status: pedido.status,
           itens: itensPedido,
@@ -3607,7 +3612,7 @@ export default function AdminDashboard() {
                                         <strong>Clube:</strong> {pedido.funcionarios?.clubes?.nome || 'N/A'}
                                       </p>
                                       <p className="text-sm text-gray-600">
-                                        <strong>Cadastro Clube:</strong> {pedido.funcionarios?.cadastro_clube || 'N/A'}
+                                        <strong>Cadastro Clube:</strong> {pedido.funcionarios?.cadastro_clube || pedido.funcionarios?.clubes?.cadastro_clube || 'N/A'}
                                       </p>
                                       <p className="text-sm text-gray-600">
                                         Data: {dataFormatada} às {horaFormatada}
