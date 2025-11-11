@@ -50,6 +50,7 @@ export default function AdminDashboard() {
     categoria: '',
     marca: '',
     sku: '',
+    ean: '',
     imagens: [],
     variacoes: []
   });
@@ -70,8 +71,11 @@ export default function AdminDashboard() {
     preco: '',
     categoria: '',
     marca: '',
-    sku: ''
+    sku: '',
+    ean: '',
+    variacoes: []
   });
+  const [editVariacoesPersonalizadas, setEditVariacoesPersonalizadas] = useState('');
   const [editProdutoImagens, setEditProdutoImagens] = useState([]);
   const [novasImagens, setNovasImagens] = useState([]);
   const [imagensParaRemover, setImagensParaRemover] = useState([]);
@@ -129,11 +133,17 @@ export default function AdminDashboard() {
         // Carregar todos os dados necessários para o dashboard
         try {
           const [empresasRes, gestoresRes, pedidosRes, uploadsRes] = await Promise.all([
-            api.get('/admin/empresas').catch(() => ({ data: [] })),
-            api.get('/admin/gestores').catch(() => ({ data: [] })),
-            api.get('/admin/pedidos').catch(() => ({ data: [] })),
-            api.get('/admin/funcionarios/uploads').catch(() => ({ data: [] }))
+            api.get('/admin/empresas').catch((err) => { console.error('Erro ao buscar empresas:', err); return { data: [] }; }),
+            api.get('/admin/gestores').catch((err) => { console.error('Erro ao buscar gestores:', err); return { data: [] }; }),
+            api.get('/admin/pedidos').catch((err) => { console.error('Erro ao buscar pedidos:', err); return { data: [] }; }),
+            api.get('/admin/funcionarios/uploads').catch((err) => { console.error('Erro ao buscar uploads:', err); return { data: [] }; })
           ]);
+          console.log('📊 Dados carregados:', {
+            empresas: empresasRes?.data?.length || 0,
+            gestores: gestoresRes?.data?.length || 0,
+            pedidos: pedidosRes?.data?.length || 0,
+            uploads: uploadsRes?.data?.uploads?.length || uploadsRes?.data?.length || 0
+          });
           setEmpresas(empresasRes?.data || []);
           setGestores(gestoresRes?.data || []);
           setPedidos(pedidosRes?.data || []);
@@ -163,15 +173,69 @@ export default function AdminDashboard() {
         setClubes(clubesRes.data || []);
         setGestores(gestoresRes.data || []);
       } else if (activeTab === 'produtos') {
-        const [prodRes, catRes, marRes] = await Promise.all([
-          api.get('/products'),
-          api.get('/admin/cadastros/categorias'),
-          api.get('/admin/cadastros/marcas')
-        ]);
-        setProdutosLista(prodRes.data.produtos || []);
-        setCategorias(catRes.data || []);
-        setPaginaProdutos(1); // Resetar para primeira página ao carregar produtos
-        setMarcas(marRes.data || []);
+        try {
+          // Buscar todos os produtos sem limite para o admin
+          // Usar Promise.allSettled para não falhar todas se uma falhar
+          const [prodRes, catRes, marRes] = await Promise.allSettled([
+            api.get('/products', { params: { page: 1, limit: 1000 } }).catch(err => {
+              console.error('Erro ao buscar produtos:', err);
+              return { data: { produtos: [], paginacao: { total: 0 } } };
+            }),
+            api.get('/admin/cadastros/categorias').catch(err => {
+              console.error('Erro ao buscar categorias:', err);
+              return { data: [] };
+            }),
+            api.get('/admin/cadastros/marcas').catch(err => {
+              console.error('Erro ao buscar marcas:', err);
+              return { data: [] };
+            })
+          ]);
+          
+          // Processar resultados - só atualizar se tiver dados válidos
+          const produtosData = prodRes.status === 'fulfilled' && prodRes.value?.data 
+            ? prodRes.value.data 
+            : null;
+          const categoriasData = catRes.status === 'fulfilled' && catRes.value?.data 
+            ? catRes.value.data 
+            : null;
+          const marcasData = marRes.status === 'fulfilled' && marRes.value?.data 
+            ? marRes.value.data 
+            : null;
+          
+          console.log('Produtos carregados:', produtosData);
+          console.log('Total de produtos:', produtosData?.produtos?.length || 0);
+          
+          // Só atualizar se tiver dados válidos - não limpar se houver erro
+          if (produtosData && produtosData.produtos !== undefined && Array.isArray(produtosData.produtos)) {
+            // Atualizar produtos (pode ser array vazio se realmente não houver produtos)
+            setProdutosLista(produtosData.produtos);
+            setPaginaProdutos(1);
+            console.log('Produtos atualizados na lista:', produtosData.produtos.length);
+          } else {
+            console.warn('Produtos não atualizados - dados inválidos ou erro na requisição');
+            console.warn('produtosData:', produtosData);
+            // NÃO limpar produtos existentes - manter os que já estão na tela
+          }
+          
+          if (categoriasData && Array.isArray(categoriasData)) {
+            setCategorias(categoriasData);
+          }
+          if (marcasData && Array.isArray(marcasData)) {
+            setMarcas(marcasData);
+          }
+        } catch (error) {
+          console.error('Erro geral ao carregar produtos:', error);
+          console.error('Detalhes do erro:', error.response?.data);
+          // NÃO limpar produtos se já existirem - apenas logar o erro
+          // setProdutosLista([]); // Comentado para não perder produtos em caso de erro
+          // setCategorias([]); // Comentado para não perder categorias em caso de erro
+          // setMarcas([]); // Comentado para não perder marcas em caso de erro
+          // Não mostrar alert se for erro de rede, apenas logar
+          if (error.response) {
+            console.error('Erro ao recarregar produtos após atualização:', error.response?.data?.error || error.message);
+            // Não mostrar alert para não interromper o fluxo
+          }
+        }
       } else if (activeTab === 'pedidos') {
         // Carregar pedidos
         try {
@@ -183,16 +247,48 @@ export default function AdminDashboard() {
         }
       } else if (activeTab === 'cadastros') {
         // Carregar produtos, categorias, marcas e tamanhos
-        const [prodRes, catRes, marRes, tamRes] = await Promise.all([
-          api.get('/products'),
-          api.get('/admin/cadastros/categorias'),
-          api.get('/admin/cadastros/marcas'),
-          api.get('/admin/cadastros/tamanhos')
-        ]);
-        setProdutos(prodRes.data.produtos || []);
-        setCategorias(catRes.data || []);
-        setMarcas(marRes.data || []);
-        setTamanhos(tamRes.data || []);
+        try {
+          // Usar Promise.allSettled para não falhar todas se uma falhar
+          const [prodRes, catRes, marRes, tamRes] = await Promise.allSettled([
+            api.get('/products', { params: { page: 1, limit: 1000 } }).catch(err => {
+              console.error('Erro ao buscar produtos:', err);
+              return { data: { produtos: [], paginacao: { total: 0 } } };
+            }),
+            api.get('/admin/cadastros/categorias').catch(err => {
+              console.error('Erro ao buscar categorias:', err);
+              return { data: [] };
+            }),
+            api.get('/admin/cadastros/marcas').catch(err => {
+              console.error('Erro ao buscar marcas:', err);
+              return { data: [] };
+            }),
+            api.get('/admin/cadastros/tamanhos').catch(err => {
+              console.error('Erro ao buscar tamanhos:', err);
+              return { data: [] };
+            })
+          ]);
+          
+          // Processar resultados
+          const produtosData = prodRes.status === 'fulfilled' ? prodRes.value.data : { produtos: [] };
+          const categoriasData = catRes.status === 'fulfilled' ? catRes.value.data : [];
+          const marcasData = marRes.status === 'fulfilled' ? marRes.value.data : [];
+          const tamanhosData = tamRes.status === 'fulfilled' ? tamRes.value.data : [];
+          
+          console.log('Produtos carregados (cadastros):', produtosData);
+          console.log('Total de produtos:', produtosData?.produtos?.length || 0);
+          
+          setProdutos(produtosData?.produtos || []);
+          setCategorias(categoriasData || []);
+          setMarcas(marcasData || []);
+          setTamanhos(tamanhosData || []);
+        } catch (error) {
+          console.error('Erro geral ao carregar dados de cadastros:', error);
+          console.error('Detalhes do erro:', error.response?.data);
+          setProdutos([]);
+          setCategorias([]);
+          setMarcas([]);
+          setTamanhos([]);
+        }
       } else if (activeTab === 'funcionarios') {
         // Carregar empresas e histórico de uploads
         try {
@@ -607,7 +703,7 @@ export default function AdminDashboard() {
           empresa: pedido.funcionarios?.empresas?.nome || 'N/A',
           cadastroEmpresa: pedido.funcionarios?.cadastro_empresa || 'N/A',
           clube: pedido.funcionarios?.clubes?.nome || 'N/A',
-          cadastroClube: pedido.funcionarios?.cadastro_clube || 'N/A',
+          cadastroClube: pedido.funcionarios?.clubes?.cadastro_clube || 'N/A',
           data: pedido.created_at,
           status: pedido.status,
           itens: itensPedido,
@@ -807,6 +903,7 @@ export default function AdminDashboard() {
       formData.append('categoria', produtoForm.categoria || '');
       formData.append('marca', produtoForm.marca || '');
       formData.append('sku', produtoForm.sku || '');
+      formData.append('ean', produtoForm.ean || '');
       formData.append('variacoes', JSON.stringify(produtoForm.variacoes || []));
 
       await api.post('/admin/produtos', formData, {
@@ -820,6 +917,7 @@ export default function AdminDashboard() {
         categoria: '',
         marca: '',
         sku: '',
+        ean: '',
         imagens: [],
         variacoes: []
       });
@@ -974,16 +1072,31 @@ export default function AdminDashboard() {
   const handleEditProduto = (produto) => {
     console.log('Editando produto:', produto);
     console.log('Imagens do produto:', produto.produto_imagens);
+    console.log('Variações do produto:', produto.variacoes);
     
     setEditingProduto(produto);
+    
+    // Processar variações
+    const variacoesArray = Array.isArray(produto.variacoes) ? produto.variacoes : [];
+    const tamanhosSelecionados = variacoesArray.filter(v => 
+      tamanhos.some(t => t.nome === v)
+    );
+    const variacoesPersonalizadas = variacoesArray.filter(v => 
+      !tamanhos.some(t => t.nome === v)
+    );
+    
     setEditProdutoForm({
       nome: produto.nome || '',
       descricao: produto.descricao || '',
       preco: produto.preco || '',
       categoria: produto.categoria || '',
       marca: produto.marca || '',
-      sku: produto.sku || ''
+      sku: produto.sku || '',
+      ean: produto.ean || '',
+      variacoes: variacoesArray
     });
+    
+    setEditVariacoesPersonalizadas(variacoesPersonalizadas.join('\n'));
     
     // Garantir que produto_imagens é um array
     const imagens = Array.isArray(produto.produto_imagens) 
@@ -1067,6 +1180,19 @@ export default function AdminDashboard() {
       formData.append('categoria', editProdutoForm.categoria || '');
       formData.append('marca', editProdutoForm.marca || '');
       formData.append('sku', editProdutoForm.sku || '');
+      // Sempre enviar EAN, mesmo se vazio (para permitir limpar o campo)
+      formData.append('ean', editProdutoForm.ean !== undefined && editProdutoForm.ean !== null ? editProdutoForm.ean : '');
+      formData.append('variacoes', JSON.stringify(editProdutoForm.variacoes || []));
+      
+      // Debug: verificar se EAN está sendo enviado
+      console.log('EAN sendo enviado no FormData:', editProdutoForm.ean);
+      console.log('Variações sendo enviadas:', editProdutoForm.variacoes);
+      console.log('FormData completo:', {
+        nome: editProdutoForm.nome,
+        sku: editProdutoForm.sku,
+        ean: editProdutoForm.ean,
+        variacoes: editProdutoForm.variacoes
+      });
 
       // Adicionar novas imagens
       novasImagens.forEach((imagem) => {
@@ -1098,20 +1224,42 @@ export default function AdminDashboard() {
       }
 
       // Verificar se a resposta tem a estrutura esperada
-      if (response.data.success === true) {
+      // Aceitar qualquer resposta que não seja um erro explícito
+      const isSuccess = response.data && (
+        response.data.success === true || 
+        response.data.success === undefined ||
+        response.status === 200
+      );
+      
+      if (isSuccess) {
         // Se tiver produto, usar. Se não, apenas sucesso já é suficiente
-        if (response.data.produto) {
+        if (response.data?.produto) {
           console.log('Produto atualizado com sucesso:', response.data.produto.id);
         }
         
         setEditingProduto(null);
         setNovasImagens([]);
         setImagensParaRemover([]);
-        loadData();
+        setEditVariacoesPersonalizadas('');
+        
+        // Recarregar dados apenas se estiver na aba de produtos
+        // Fazer recarregamento em background sem bloquear
+        if (activeTab === 'produtos') {
+          // Não aguardar o loadData para não bloquear a resposta
+          // Usar setTimeout para não bloquear o alert
+          setTimeout(() => {
+            loadData().catch(loadError => {
+              console.error('Erro ao recarregar produtos após atualização:', loadError);
+              // Não limpar produtos em caso de erro - manter os que já estão na tela
+            });
+          }, 100);
+        }
+        
         alert('Produto atualizado com sucesso!');
       } else {
         console.error('Resposta inesperada:', response.data);
-        throw new Error(response.data.error || 'Resposta do servidor não contém sucesso');
+        // Não limpar produtos mesmo em caso de erro na resposta
+        throw new Error(response.data?.error || 'Resposta do servidor não contém sucesso');
       }
     } catch (error) {
       console.error('Erro completo:', error);
@@ -1135,11 +1283,21 @@ export default function AdminDashboard() {
   const handleDeleteProduto = async (id) => {
     if (!confirm('Deseja realmente excluir este produto?')) return;
     try {
-      await api.delete(`/admin/produtos/${id}`);
-      loadData();
-      alert('Produto excluído!');
+      const response = await api.delete(`/admin/produtos/${id}`);
+      
+      // Verificar se a resposta indica sucesso
+      if (response.data && response.data.success === true) {
+        loadData();
+        alert('Produto excluído com sucesso!');
+      } else {
+        // Se a resposta não indica sucesso, mas não há erro HTTP
+        const errorMsg = response.data?.error || 'Erro desconhecido ao excluir produto';
+        alert('Erro ao excluir produto: ' + errorMsg);
+      }
     } catch (error) {
-      alert('Erro ao excluir produto');
+      console.error('Erro ao excluir produto:', error);
+      const errorMsg = error.response?.data?.error || error.message || 'Erro ao excluir produto';
+      alert('Erro ao excluir produto: ' + errorMsg);
     }
   };
 
@@ -1852,7 +2010,6 @@ export default function AdminDashboard() {
                           <div>
                             <p className="text-xs text-gray-500 mb-1">Empresa</p>
                             <p className="font-semibold text-gray-900">{empresa.nome}</p>
-                            <p className="text-sm text-gray-600">{empresa.cadastro_empresa}</p>
                 </div>
                           <div>
                             <p className="text-xs text-gray-500 mb-1">Clube</p>
@@ -2345,6 +2502,17 @@ export default function AdminDashboard() {
                         </div>
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">
+                            EAN
+                          </label>
+                          <input
+                            type="text"
+                            value={editProdutoForm.ean}
+                            onChange={(e) => setEditProdutoForm({ ...editProdutoForm, ean: e.target.value })}
+                            className="w-full px-4 py-2 border rounded-lg"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
                             Categoria
                           </label>
                           <select
@@ -2486,6 +2654,60 @@ export default function AdminDashboard() {
                         </div>
                       </div>
 
+                      {/* Seção de Variações */}
+                      <div className="border-t pt-4">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Variações
+                        </label>
+                        <div className="space-y-2">
+                          <div className="flex flex-wrap gap-2 mb-2">
+                            {tamanhos.map((tamanho) => {
+                              const isSelected = editProdutoForm.variacoes?.includes(tamanho.nome) || false;
+                              return (
+                                <button
+                                  key={tamanho.id}
+                                  type="button"
+                                  onClick={() => {
+                                    const novasVariacoes = isSelected
+                                      ? editProdutoForm.variacoes.filter(v => v !== tamanho.nome)
+                                      : [...(editProdutoForm.variacoes || []), tamanho.nome];
+                                    setEditProdutoForm({ ...editProdutoForm, variacoes: novasVariacoes });
+                                  }}
+                                  className={`px-4 py-2 rounded-lg border transition-colors ${
+                                    isSelected
+                                      ? 'bg-primary-purple text-white border-primary-purple'
+                                      : 'bg-white text-gray-700 border-gray-300 hover:border-primary-purple'
+                                  }`}
+                                >
+                                  {tamanho.nome}
+                                </button>
+                              );
+                            })}
+                          </div>
+                          <p className="text-sm text-gray-500">
+                            Ou adicione variações personalizadas (uma por linha):
+                          </p>
+                          <textarea
+                            placeholder="Cor Azul&#10;Cor Vermelha&#10;Material Algodão"
+                            value={editVariacoesPersonalizadas}
+                            onChange={(e) => {
+                              setEditVariacoesPersonalizadas(e.target.value);
+                              const vars = e.target.value.split('\n').filter(v => v.trim());
+                              // Combinar tamanhos selecionados com variações personalizadas
+                              const tamanhosSelecionados = (editProdutoForm.variacoes || []).filter(v => 
+                                tamanhos.some(t => t.nome === v)
+                              );
+                              setEditProdutoForm({ 
+                                ...editProdutoForm, 
+                                variacoes: [...tamanhosSelecionados, ...vars]
+                              });
+                            }}
+                            className="w-full px-4 py-2 border rounded-lg"
+                            rows="3"
+                          />
+                        </div>
+                      </div>
+
                       <div className="flex gap-4 pt-4">
                         <button
                           type="submit"
@@ -2499,6 +2721,7 @@ export default function AdminDashboard() {
                             setEditingProduto(null);
                             setNovasImagens([]);
                             setImagensParaRemover([]);
+                            setEditVariacoesPersonalizadas('');
                             setMostrarVisualizadorImagens(false);
                           }}
                           className="flex-1 bg-gray-300 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-400 transition-colors"
@@ -2902,6 +3125,13 @@ export default function AdminDashboard() {
                     placeholder="SKU"
                     value={produtoForm.sku}
                     onChange={(e) => setProdutoForm({ ...produtoForm, sku: e.target.value })}
+                    className="px-4 py-2 border rounded-lg"
+                  />
+                  <input
+                    type="text"
+                    placeholder="EAN"
+                    value={produtoForm.ean}
+                    onChange={(e) => setProdutoForm({ ...produtoForm, ean: e.target.value })}
                     className="px-4 py-2 border rounded-lg"
                   />
                 <select
@@ -3382,13 +3612,13 @@ export default function AdminDashboard() {
                                         <strong>Empresa:</strong> {pedido.funcionarios?.empresas?.nome || 'N/A'}
                                       </p>
                                       <p className="text-sm text-gray-600">
-                                        <strong>Cadastro Empresa:</strong> {pedido.funcionarios?.empresas?.cadastro_empresa || pedido.funcionarios?.cadastro_empresa || 'N/A'}
+                                        <strong>Cadastro Empresa:</strong> {pedido.funcionarios?.cadastro_empresa || 'N/A'}
                                       </p>
                                       <p className="text-sm text-gray-600">
-                                        <strong>Clube:</strong> {pedido.funcionarios?.clubes?.nome || 'N/A'}
+                                        <strong>Clube:</strong> {pedido.funcionarios?.cadastro_clube || 'N/A'}
                                       </p>
                                       <p className="text-sm text-gray-600">
-                                        <strong>Cadastro Clube:</strong> {pedido.funcionarios?.cadastro_clube || 'N/A'}
+                                        <strong>Cadastro Clube:</strong> {pedido.funcionarios?.clubes?.cadastro_clube ? String(pedido.funcionarios.clubes.cadastro_clube).trim() : 'N/A'}
                                       </p>
                                       <p className="text-sm text-gray-600">
                                         Data: {dataFormatada} às {horaFormatada}
@@ -3437,8 +3667,13 @@ export default function AdminDashboard() {
                                       <div className="border-t border-gray-200 pt-4 mt-4">
                                         <p className="text-sm font-semibold text-gray-700 mb-3">Itens do Pedido ({quantidadeItens}):</p>
                                         <div className="space-y-2">
-                                          {pedido.pedido_itens?.map((item, index) => (
-                                            <div key={index} className="flex justify-between items-start text-sm bg-white rounded-lg p-3 border border-gray-200">
+                                          {pedido.pedido_itens?.map((item, index) => {
+                                            // Debug: verificar se item tem ID
+                                            if (!item.id) {
+                                              console.warn('Item sem ID:', item, 'Index:', index);
+                                            }
+                                            return (
+                                            <div key={item.id || index} className="flex justify-between items-start text-sm bg-white rounded-lg p-3 border border-gray-200">
                                               <div className="flex-1">
                                                 <p className="font-medium text-gray-800">
                                                   {item.produtos?.nome || 'Produto não encontrado'}
@@ -3450,16 +3685,54 @@ export default function AdminDashboard() {
                                                   <p className="text-xs text-gray-400 mt-1 line-clamp-2">{item.produtos.descricao}</p>
                                                 )}
                                               </div>
-                                              <div className="text-right ml-4">
-                                                <p className="text-gray-600">
-                                                  {item.quantidade}x R$ {item.preco.toFixed(2).replace('.', ',')}
-                                                </p>
-                                                <p className="font-semibold text-gray-800">
-                                                  = R$ {(item.quantidade * item.preco).toFixed(2).replace('.', ',')}
-                                                </p>
+                                              <div className="flex items-center gap-3 ml-4">
+                                                <div className="text-right">
+                                                  <p className="text-gray-600">
+                                                    {item.quantidade}x R$ {item.preco.toFixed(2).replace('.', ',')}
+                                                  </p>
+                                                  <p className="font-semibold text-gray-800">
+                                                    = R$ {(item.quantidade * item.preco).toFixed(2).replace('.', ',')}
+                                                  </p>
+                                                </div>
+                                                <button
+                                                  onClick={async (e) => {
+                                                    e.stopPropagation();
+                                                    
+                                                    // Verificar se o item tem ID
+                                                    if (!item.id) {
+                                                      console.error('Item sem ID:', item);
+                                                      alert('Erro: Item não possui ID válido. Não é possível deletar.');
+                                                      return;
+                                                    }
+                                                    
+                                                    if (confirm(`Tem certeza que deseja excluir "${item.produtos?.nome || 'este produto'}" deste pedido?`)) {
+                                                      try {
+                                                        console.log('Deletando item:', { pedidoId: pedido.id, itemId: item.id });
+                                                        const response = await api.delete(`/admin/pedidos/${pedido.id}/itens/${item.id}`);
+                                                        console.log('Resposta do servidor:', response.data);
+                                                        
+                                                        if (response.data && response.data.success === true) {
+                                                          loadData();
+                                                          alert('Produto removido do pedido com sucesso!');
+                                                        } else {
+                                                          alert('Erro ao remover produto: ' + (response.data?.error || 'Resposta inesperada do servidor'));
+                                                        }
+                                                      } catch (error) {
+                                                        console.error('Erro completo:', error);
+                                                        console.error('Resposta do erro:', error.response?.data);
+                                                        alert('Erro ao remover produto: ' + (error.response?.data?.error || error.response?.data?.message || error.message || 'Erro desconhecido'));
+                                                      }
+                                                    }
+                                                  }}
+                                                  className="px-2 py-1 bg-red-500 text-white rounded text-xs font-semibold hover:bg-red-600 transition-colors whitespace-nowrap"
+                                                  title="Excluir produto do pedido"
+                                                >
+                                                  ✕
+                                                </button>
                                               </div>
                                             </div>
-                                          ))}
+                                            );
+                                          })}
                                         </div>
                                       </div>
                                     </>
