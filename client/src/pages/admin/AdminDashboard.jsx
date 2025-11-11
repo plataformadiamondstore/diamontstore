@@ -592,24 +592,21 @@ export default function AdminDashboard() {
     pedidosFiltrados.forEach(pedido => {
       if (pedido.pedido_itens && pedido.pedido_itens.length > 0) {
         const itensPedido = [];
-        let valorTotalPedido = 0;
         let quantidadeTotalPedido = 0;
         
         pedido.pedido_itens.forEach(item => {
           const sku = item.produtos?.sku || item.produtos?.codigo || item.sku || '-';
+          const ean = item.produtos?.ean || item.ean || '-';
           const quantidade = item.quantidade || 0;
-          const preco = parseFloat(item.preco || 0);
           
           itensPedido.push({
             produtoNome: item.produtos?.nome || 'Produto não encontrado',
             variacao: item.variacao || null,
             quantidade: quantidade,
-            preco: preco,
             sku: sku,
-            subtotal: preco * quantidade
+            ean: ean
           });
           
-          valorTotalPedido += (preco * quantidade);
           quantidadeTotalPedido += quantidade;
         });
         
@@ -623,7 +620,6 @@ export default function AdminDashboard() {
           data: pedido.created_at,
           status: pedido.status,
           itens: itensPedido,
-          valorTotal: valorTotalPedido,
           quantidadeTotal: quantidadeTotalPedido
         };
       }
@@ -723,19 +719,17 @@ export default function AdminDashboard() {
             <tr>
               <th>Produto</th>
               <th>SKU</th>
+              <th>EAN</th>
               <th>Variação</th>
               <th>Quantidade</th>
-              <th>Preço Unit.</th>
-              <th>Subtotal</th>
             </tr>
             ${pedido.itens.map(item => `
               <tr>
                 <td>${item.produtoNome}</td>
                 <td><span class="sku-destaque">${item.sku && item.sku !== '-' ? item.sku : 'NÃO CADASTRADO'}</span></td>
+                <td><span class="sku-destaque">${item.ean && item.ean !== '-' ? item.ean : '-'}</span></td>
                 <td>${item.variacao || '-'}</td>
                 <td><strong>${item.quantidade}</strong></td>
-                <td>R$ ${item.preco.toFixed(2).replace('.', ',')}</td>
-                <td>R$ ${item.subtotal.toFixed(2).replace('.', ',')}</td>
               </tr>
             `).join('')}
           </table>

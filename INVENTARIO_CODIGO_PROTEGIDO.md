@@ -109,17 +109,18 @@ Todos estes campos DEVEM estar presentes e validados:
 
 #### Frontend (`client/src/pages/admin/AdminDashboard.jsx`):
 - ✅ Função `handleImprimirPorProduto` (linha ~580+)
-- ✅ Cálculo de `valorTotalPedido` (linha ~595)
-- ✅ Cálculo de `subtotal` por item (linha ~609)
 - ✅ Colunas na tabela de impressão:
   - Produto
   - SKU
+  - **EAN** (obrigatório - linha ~722)
   - Variação
   - Quantidade
-  - **Preço Unit.** (linha ~728)
-  - **Subtotal** (linha ~729)
+- ✅ Exibição de **Cadastro Clube** (número do clube) nas informações do pedido (linha ~714)
 
-**IMPORTANTE**: As colunas de Preço Unit. e Subtotal DEVEM estar presentes na impressão.
+**IMPORTANTE**: 
+- A coluna EAN DEVE estar presente na impressão
+- O número do clube (cadastro_clube) DEVE ser exibido
+- As colunas de Preço Unit. e Subtotal foram REMOVIDAS por solicitação do usuário (2025-01-27)
 
 ---
 

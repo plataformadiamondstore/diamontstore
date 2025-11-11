@@ -188,7 +188,7 @@ verificarArquivo(
 console.log(`${colors.yellow}5. Verificando Impressão de Pedidos...${colors.reset}`);
 verificarArquivo(
   'client/src/pages/admin/AdminDashboard.jsx',
-  ['handleImprimirPorProduto', 'valorTotalPedido', 'Preço Unit', 'Subtotal'],
+  ['handleImprimirPorProduto', 'EAN', 'cadastroClube'],
   'Função de Impressão de Pedidos'
 );
 
