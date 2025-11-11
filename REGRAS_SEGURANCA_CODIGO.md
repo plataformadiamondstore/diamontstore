@@ -1,8 +1,21 @@
 # 🛡️ REGRAS DE SEGURANÇA DO CÓDIGO - NUNCA REMOVER FUNCIONALIDADES
 
+## ⚠️⚠️⚠️ TRAVA DE SEGURANÇA CRÍTICA ⚠️⚠️⚠️
+
+**ESTE ARQUIVO É UMA TRAVA DE SEGURANÇA CRÍTICA**
+**O USUÁRIO JÁ PERDEU MUITAS FUNCIONALIDADES POR REMOÇÕES NÃO AUTORIZADAS**
+**NUNCA, EM HIPÓTESE ALGUMA, REMOVER OU ALTERAR FUNCIONALIDADES SEM AUTORIZAÇÃO EXPLÍCITA**
+
 ## ⚠️ REGRA PRINCIPAL - ABSOLUTAMENTE PROIBIDO
 
 **NUNCA, EM HIPÓTESE ALGUMA, REMOVER OU ALTERAR FUNCIONALIDADES QUE FORAM SOLICITADAS PELO USUÁRIO SEM EXPLÍCITA AUTORIZAÇÃO.**
+
+**ANTES DE QUALQUER ALTERAÇÃO QUE REMOVA CÓDIGO:**
+1. **LEIA O ARQUIVO `INVENTARIO_CODIGO_PROTEGIDO.md`**
+2. **EXECUTE `node scripts/verificar-codigo-protegido.js`**
+3. **SE O CÓDIGO ESTIVER NO INVENTÁRIO → NÃO REMOVA**
+4. **PERGUNTE AO USUÁRIO PRIMEIRO**
+5. **AGUARDE AUTORIZAÇÃO EXPLÍCITA POR ESCRITO**
 
 ## 📋 CHECKLIST OBRIGATÓRIO ANTES DE QUALQUER ALTERAÇÃO
 
@@ -106,10 +119,22 @@
    - Documentar no commit
    - Atualizar este documento
 
-## 🔍 VERIFICAÇÃO ANTES DE COMMIT
+## 🔍 VERIFICAÇÃO OBRIGATÓRIA ANTES DE COMMIT
 
+**⚠️ ESTA VERIFICAÇÃO É OBRIGATÓRIA - NÃO PULE ESTA ETAPA**
+
+### Passo 1: Executar Script de Verificação
+```bash
+node scripts/verificar-codigo-protegido.js
+```
+
+**SE O SCRIPT FALHAR → NÃO FAÇA COMMIT**
+**RESTAURE OS ARQUIVOS DO GIT: `git restore <arquivo>`**
+
+### Passo 2: Checklist Manual
 Antes de fazer commit, verificar:
 
+- [ ] Script de verificação passou sem erros
 - [ ] Nenhuma funcionalidade foi removida sem autorização
 - [ ] Todos os campos obrigatórios ainda estão presentes
 - [ ] Todas as validações ainda estão funcionando
@@ -117,6 +142,8 @@ Antes de fazer commit, verificar:
 - [ ] Lógicas de negócio ainda estão implementadas
 - [ ] Campos de formulário não foram removidos
 - [ ] Exibições visuais não foram alteradas sem solicitação
+- [ ] Todas as rotas da API ainda existem
+- [ ] Todas as telas ainda existem
 
 ## 📚 HISTÓRICO DE FUNCIONALIDADES IMPLEMENTADAS
 
@@ -165,7 +192,25 @@ Se houver qualquer dúvida sobre remover ou alterar código:
 
 ---
 
-**ÚLTIMA ATUALIZAÇÃO**: Agora
-**VERSÃO**: 1.0
-**STATUS**: ATIVO - SEGUIR SEMPRE
+## 📚 ARQUIVOS RELACIONADOS
+
+- `INVENTARIO_CODIGO_PROTEGIDO.md` - Lista completa de código protegido
+- `scripts/verificar-codigo-protegido.js` - Script de verificação automática
+- `.git/hooks/pre-commit` - Hook do Git para verificação automática (se configurado)
+
+## 🔧 CONFIGURAÇÃO DO HOOK DO GIT (OPCIONAL)
+
+Para verificação automática antes de cada commit:
+
+```bash
+# Criar hook
+cp scripts/pre-commit .git/hooks/pre-commit
+chmod +x .git/hooks/pre-commit
+```
+
+---
+
+**ÚLTIMA ATUALIZAÇÃO**: 2025-01-27
+**VERSÃO**: 2.0
+**STATUS**: 🔴 ATIVO - PROTEÇÃO MÁXIMA - TRAVA DE SEGURANÇA CRÍTICA
 

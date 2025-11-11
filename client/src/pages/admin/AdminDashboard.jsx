@@ -830,6 +830,8 @@ export default function AdminDashboard() {
       return;
     }
     
+    // 🔒 CÓDIGO PROTEGIDO - NUNCA REMOVER
+    // Validação de estoque obrigatória - Ver: INVENTARIO_CODIGO_PROTEGIDO.md
     if (!produtoForm.estoque || produtoForm.estoque.trim() === '' || parseInt(produtoForm.estoque) < 0) {
       alert('Estoque do produto é obrigatório e deve ser um número maior ou igual a zero');
       return;
@@ -1032,6 +1034,9 @@ export default function AdminDashboard() {
     }
   };
 
+  // 🔒 CÓDIGO PROTEGIDO - NUNCA REMOVER
+  // Esta função é crítica para desativar/ativar produtos
+  // Ver: INVENTARIO_CODIGO_PROTEGIDO.md
   const handleToggleAtivo = async (id, ativoAtual) => {
     try {
       const novoStatus = !ativoAtual;

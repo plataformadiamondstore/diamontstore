@@ -1408,6 +1408,9 @@ router.get('/produtos', async (req, res) => {
   }
 });
 
+// 🔒 CÓDIGO PROTEGIDO - NUNCA REMOVER
+// Esta rota é crítica para desativar/ativar produtos
+// Ver: INVENTARIO_CODIGO_PROTEGIDO.md
 // Toggle ativo/inativo do produto
 router.put('/produtos/:id/toggle-ativo', async (req, res) => {
   try {
@@ -1620,6 +1623,8 @@ router.put('/pedidos/:pedidoId/itens/:itemId/aprovar', async (req, res) => {
 
     if (error) throw error;
 
+    // 🔒 CÓDIGO PROTEGIDO - NUNCA REMOVER
+    // Lógica de redução de estoque ao aprovar item - Ver: INVENTARIO_CODIGO_PROTEGIDO.md
     // Se o status mudou para 'aprovado', reduzir estoque do produto
     if (novoStatus === 'aprovado' && itemAtual.produto_id) {
       // Buscar produto atual

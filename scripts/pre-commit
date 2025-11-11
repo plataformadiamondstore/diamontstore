@@ -1,0 +1,30 @@
+#!/bin/sh
+
+#
+# 🔒 HOOK DE SEGURANÇA - VERIFICAÇÃO PRÉ-COMMIT
+# 
+# Este hook executa automaticamente antes de cada commit para verificar
+# se código protegido não foi removido acidentalmente.
+#
+
+echo "🔒 Verificando código protegido antes do commit..."
+
+# Executar script de verificação
+node scripts/verificar-codigo-protegido.js
+
+# Se o script falhar, abortar o commit
+if [ $? -ne 0 ]; then
+    echo ""
+    echo "❌ COMMIT ABORTADO!"
+    echo "⚠️  Código protegido foi removido ou modificado."
+    echo "📖 Leia INVENTARIO_CODIGO_PROTEGIDO.md para mais informações."
+    echo ""
+    echo "Para restaurar arquivos do Git:"
+    echo "  git restore <arquivo>"
+    echo ""
+    exit 1
+fi
+
+echo "✅ Verificação passou. Prosseguindo com commit..."
+exit 0
+
