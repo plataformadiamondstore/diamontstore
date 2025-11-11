@@ -12,13 +12,25 @@ export default function ProductCard({ product, onAddToCart }) {
   
   // Usar imagens da tabela produto_imagens ou fallback para imagens antigas (JSONB)
   const images = product.produto_imagens && product.produto_imagens.length > 0
-    ? product.produto_imagens.map(img => img.url_imagem).sort((a, b) => {
-        // Ordenar por ordem se disponível
-        const imgA = product.produto_imagens.find(i => i.url_imagem === a);
-        const imgB = product.produto_imagens.find(i => i.url_imagem === b);
-        return (imgA?.ordem || 0) - (imgB?.ordem || 0);
-      })
+    ? product.produto_imagens
+        .filter(img => img && img.url_imagem) // Filtrar imagens inválidas
+        .map(img => img.url_imagem)
+        .sort((a, b) => {
+          // Ordenar por ordem se disponível
+          const imgA = product.produto_imagens.find(i => i.url_imagem === a);
+          const imgB = product.produto_imagens.find(i => i.url_imagem === b);
+          return (imgA?.ordem || 0) - (imgB?.ordem || 0);
+        })
     : (product.imagens || []);
+  
+  // Log para debug se não houver imagens
+  if (images.length === 0 && product.nome) {
+    console.warn(`Produto "${product.nome}" (ID: ${product.id}) não possui imagens:`, {
+      produto_imagens: product.produto_imagens,
+      imagens: product.imagens
+    });
+  }
+  
   const variacoes = product.variacoes || [];
   
   // Verificar se o botão deve estar habilitado

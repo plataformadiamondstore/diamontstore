@@ -3,7 +3,7 @@ export default function Logo({ className = "" }) {
     <div className={`flex items-center gap-3 ${className}`}>
       {/* Logo do arquivo de imagem */}
       <img 
-        src="/logo.png" 
+        src="/logo.jpeg" 
         alt="SLOTHS Logo" 
         className="h-20 w-auto"
         onError={(e) => {

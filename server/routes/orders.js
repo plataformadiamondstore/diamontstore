@@ -26,7 +26,8 @@ router.post('/', async (req, res) => {
       produto_id: item.produto_id,
       quantidade: item.quantidade,
       variacao: item.variacao || null,
-      preco: item.preco
+      preco: item.preco,
+      status: 'pendente'
     }));
 
     const { error: itensError } = await supabase

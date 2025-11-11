@@ -51,10 +51,12 @@ export default function AdminDashboard() {
     marca: '',
     sku: '',
     ean: '',
+    estoque: '',
     imagens: [],
     variacoes: []
   });
   const [variacoesPersonalizadas, setVariacoesPersonalizadas] = useState('');
+  const [editVariacoesPersonalizadas, setEditVariacoesPersonalizadas] = useState('');
   const [produtoImagens, setProdutoImagens] = useState([]);
   const [imagemCapaIndex, setImagemCapaIndex] = useState(0);
   const [excelFile, setExcelFile] = useState(null);
@@ -73,9 +75,9 @@ export default function AdminDashboard() {
     marca: '',
     sku: '',
     ean: '',
+    estoque: '',
     variacoes: []
   });
-  const [editVariacoesPersonalizadas, setEditVariacoesPersonalizadas] = useState('');
   const [editProdutoImagens, setEditProdutoImagens] = useState([]);
   const [novasImagens, setNovasImagens] = useState([]);
   const [imagensParaRemover, setImagensParaRemover] = useState([]);
@@ -133,17 +135,11 @@ export default function AdminDashboard() {
         // Carregar todos os dados necessários para o dashboard
         try {
           const [empresasRes, gestoresRes, pedidosRes, uploadsRes] = await Promise.all([
-            api.get('/admin/empresas').catch((err) => { console.error('Erro ao buscar empresas:', err); return { data: [] }; }),
-            api.get('/admin/gestores').catch((err) => { console.error('Erro ao buscar gestores:', err); return { data: [] }; }),
-            api.get('/admin/pedidos').catch((err) => { console.error('Erro ao buscar pedidos:', err); return { data: [] }; }),
-            api.get('/admin/funcionarios/uploads').catch((err) => { console.error('Erro ao buscar uploads:', err); return { data: [] }; })
+            api.get('/admin/empresas').catch(() => ({ data: [] })),
+            api.get('/admin/gestores').catch(() => ({ data: [] })),
+            api.get('/admin/pedidos').catch(() => ({ data: [] })),
+            api.get('/admin/funcionarios/uploads').catch(() => ({ data: [] }))
           ]);
-          console.log('📊 Dados carregados:', {
-            empresas: empresasRes?.data?.length || 0,
-            gestores: gestoresRes?.data?.length || 0,
-            pedidos: pedidosRes?.data?.length || 0,
-            uploads: uploadsRes?.data?.uploads?.length || uploadsRes?.data?.length || 0
-          });
           setEmpresas(empresasRes?.data || []);
           setGestores(gestoresRes?.data || []);
           setPedidos(pedidosRes?.data || []);
@@ -173,69 +169,15 @@ export default function AdminDashboard() {
         setClubes(clubesRes.data || []);
         setGestores(gestoresRes.data || []);
       } else if (activeTab === 'produtos') {
-        try {
-          // Buscar todos os produtos sem limite para o admin
-          // Usar Promise.allSettled para não falhar todas se uma falhar
-          const [prodRes, catRes, marRes] = await Promise.allSettled([
-            api.get('/products', { params: { page: 1, limit: 1000 } }).catch(err => {
-              console.error('Erro ao buscar produtos:', err);
-              return { data: { produtos: [], paginacao: { total: 0 } } };
-            }),
-            api.get('/admin/cadastros/categorias').catch(err => {
-              console.error('Erro ao buscar categorias:', err);
-              return { data: [] };
-            }),
-            api.get('/admin/cadastros/marcas').catch(err => {
-              console.error('Erro ao buscar marcas:', err);
-              return { data: [] };
-            })
-          ]);
-          
-          // Processar resultados - só atualizar se tiver dados válidos
-          const produtosData = prodRes.status === 'fulfilled' && prodRes.value?.data 
-            ? prodRes.value.data 
-            : null;
-          const categoriasData = catRes.status === 'fulfilled' && catRes.value?.data 
-            ? catRes.value.data 
-            : null;
-          const marcasData = marRes.status === 'fulfilled' && marRes.value?.data 
-            ? marRes.value.data 
-            : null;
-          
-          console.log('Produtos carregados:', produtosData);
-          console.log('Total de produtos:', produtosData?.produtos?.length || 0);
-          
-          // Só atualizar se tiver dados válidos - não limpar se houver erro
-          if (produtosData && produtosData.produtos !== undefined && Array.isArray(produtosData.produtos)) {
-            // Atualizar produtos (pode ser array vazio se realmente não houver produtos)
-            setProdutosLista(produtosData.produtos);
-            setPaginaProdutos(1);
-            console.log('Produtos atualizados na lista:', produtosData.produtos.length);
-          } else {
-            console.warn('Produtos não atualizados - dados inválidos ou erro na requisição');
-            console.warn('produtosData:', produtosData);
-            // NÃO limpar produtos existentes - manter os que já estão na tela
-          }
-          
-          if (categoriasData && Array.isArray(categoriasData)) {
-            setCategorias(categoriasData);
-          }
-          if (marcasData && Array.isArray(marcasData)) {
-            setMarcas(marcasData);
-          }
-        } catch (error) {
-          console.error('Erro geral ao carregar produtos:', error);
-          console.error('Detalhes do erro:', error.response?.data);
-          // NÃO limpar produtos se já existirem - apenas logar o erro
-          // setProdutosLista([]); // Comentado para não perder produtos em caso de erro
-          // setCategorias([]); // Comentado para não perder categorias em caso de erro
-          // setMarcas([]); // Comentado para não perder marcas em caso de erro
-          // Não mostrar alert se for erro de rede, apenas logar
-          if (error.response) {
-            console.error('Erro ao recarregar produtos após atualização:', error.response?.data?.error || error.message);
-            // Não mostrar alert para não interromper o fluxo
-          }
-        }
+        const [prodRes, catRes, marRes] = await Promise.all([
+          api.get('/products'),
+          api.get('/admin/cadastros/categorias'),
+          api.get('/admin/cadastros/marcas')
+        ]);
+        setProdutosLista(prodRes.data.produtos || []);
+        setCategorias(catRes.data || []);
+        setPaginaProdutos(1); // Resetar para primeira página ao carregar produtos
+        setMarcas(marRes.data || []);
       } else if (activeTab === 'pedidos') {
         // Carregar pedidos
         try {
@@ -247,48 +189,16 @@ export default function AdminDashboard() {
         }
       } else if (activeTab === 'cadastros') {
         // Carregar produtos, categorias, marcas e tamanhos
-        try {
-          // Usar Promise.allSettled para não falhar todas se uma falhar
-          const [prodRes, catRes, marRes, tamRes] = await Promise.allSettled([
-            api.get('/products', { params: { page: 1, limit: 1000 } }).catch(err => {
-              console.error('Erro ao buscar produtos:', err);
-              return { data: { produtos: [], paginacao: { total: 0 } } };
-            }),
-            api.get('/admin/cadastros/categorias').catch(err => {
-              console.error('Erro ao buscar categorias:', err);
-              return { data: [] };
-            }),
-            api.get('/admin/cadastros/marcas').catch(err => {
-              console.error('Erro ao buscar marcas:', err);
-              return { data: [] };
-            }),
-            api.get('/admin/cadastros/tamanhos').catch(err => {
-              console.error('Erro ao buscar tamanhos:', err);
-              return { data: [] };
-            })
-          ]);
-          
-          // Processar resultados
-          const produtosData = prodRes.status === 'fulfilled' ? prodRes.value.data : { produtos: [] };
-          const categoriasData = catRes.status === 'fulfilled' ? catRes.value.data : [];
-          const marcasData = marRes.status === 'fulfilled' ? marRes.value.data : [];
-          const tamanhosData = tamRes.status === 'fulfilled' ? tamRes.value.data : [];
-          
-          console.log('Produtos carregados (cadastros):', produtosData);
-          console.log('Total de produtos:', produtosData?.produtos?.length || 0);
-          
-          setProdutos(produtosData?.produtos || []);
-          setCategorias(categoriasData || []);
-          setMarcas(marcasData || []);
-          setTamanhos(tamanhosData || []);
-        } catch (error) {
-          console.error('Erro geral ao carregar dados de cadastros:', error);
-          console.error('Detalhes do erro:', error.response?.data);
-          setProdutos([]);
-          setCategorias([]);
-          setMarcas([]);
-          setTamanhos([]);
-        }
+        const [prodRes, catRes, marRes, tamRes] = await Promise.all([
+          api.get('/products'),
+          api.get('/admin/cadastros/categorias'),
+          api.get('/admin/cadastros/marcas'),
+          api.get('/admin/cadastros/tamanhos')
+        ]);
+        setProdutos(prodRes.data.produtos || []);
+        setCategorias(catRes.data || []);
+        setMarcas(marRes.data || []);
+        setTamanhos(tamRes.data || []);
       } else if (activeTab === 'funcionarios') {
         // Carregar empresas e histórico de uploads
         try {
@@ -703,7 +613,7 @@ export default function AdminDashboard() {
           empresa: pedido.funcionarios?.empresas?.nome || 'N/A',
           cadastroEmpresa: pedido.funcionarios?.cadastro_empresa || 'N/A',
           clube: pedido.funcionarios?.clubes?.nome || 'N/A',
-          cadastroClube: pedido.funcionarios?.clubes?.cadastro_clube || 'N/A',
+          cadastroClube: pedido.funcionarios?.cadastro_clube || 'N/A',
           data: pedido.created_at,
           status: pedido.status,
           itens: itensPedido,
@@ -873,8 +783,54 @@ export default function AdminDashboard() {
   const handleCreateProduto = async (e) => {
     e.preventDefault();
     
+    // Validações obrigatórias
+    if (produtoImagens.length < 3) {
+      alert('É obrigatório adicionar pelo menos 3 imagens do produto');
+      return;
+    }
+    
     if (produtoImagens.length > 5) {
       alert('Máximo de 5 imagens permitidas');
+      return;
+    }
+    
+    if (!produtoForm.nome || produtoForm.nome.trim() === '') {
+      alert('Nome do produto é obrigatório');
+      return;
+    }
+    
+    if (!produtoForm.preco || parseFloat(produtoForm.preco) <= 0) {
+      alert('Preço do produto é obrigatório e deve ser maior que zero');
+      return;
+    }
+    
+    if (!produtoForm.sku || produtoForm.sku.trim() === '') {
+      alert('SKU do produto é obrigatório');
+      return;
+    }
+    
+    if (!produtoForm.ean || produtoForm.ean.trim() === '') {
+      alert('EAN do produto é obrigatório');
+      return;
+    }
+    
+    if (!produtoForm.categoria || produtoForm.categoria.trim() === '') {
+      alert('Categoria do produto é obrigatória');
+      return;
+    }
+    
+    if (!produtoForm.marca || produtoForm.marca.trim() === '') {
+      alert('Marca do produto é obrigatória');
+      return;
+    }
+    
+    if (!produtoForm.estoque || produtoForm.estoque.trim() === '' || parseInt(produtoForm.estoque) < 0) {
+      alert('Estoque do produto é obrigatório e deve ser um número maior ou igual a zero');
+      return;
+    }
+    
+    if (!produtoForm.descricao || produtoForm.descricao.trim() === '') {
+      alert('Descrição do produto é obrigatória');
       return;
     }
 
@@ -904,6 +860,7 @@ export default function AdminDashboard() {
       formData.append('marca', produtoForm.marca || '');
       formData.append('sku', produtoForm.sku || '');
       formData.append('ean', produtoForm.ean || '');
+      formData.append('estoque', produtoForm.estoque || '0');
       formData.append('variacoes', JSON.stringify(produtoForm.variacoes || []));
 
       await api.post('/admin/produtos', formData, {
@@ -918,6 +875,7 @@ export default function AdminDashboard() {
         marca: '',
         sku: '',
         ean: '',
+        estoque: '',
         imagens: [],
         variacoes: []
       });
@@ -1072,19 +1030,8 @@ export default function AdminDashboard() {
   const handleEditProduto = (produto) => {
     console.log('Editando produto:', produto);
     console.log('Imagens do produto:', produto.produto_imagens);
-    console.log('Variações do produto:', produto.variacoes);
     
     setEditingProduto(produto);
-    
-    // Processar variações
-    const variacoesArray = Array.isArray(produto.variacoes) ? produto.variacoes : [];
-    const tamanhosSelecionados = variacoesArray.filter(v => 
-      tamanhos.some(t => t.nome === v)
-    );
-    const variacoesPersonalizadas = variacoesArray.filter(v => 
-      !tamanhos.some(t => t.nome === v)
-    );
-    
     setEditProdutoForm({
       nome: produto.nome || '',
       descricao: produto.descricao || '',
@@ -1093,10 +1040,10 @@ export default function AdminDashboard() {
       marca: produto.marca || '',
       sku: produto.sku || '',
       ean: produto.ean || '',
-      variacoes: variacoesArray
+      estoque: produto.estoque !== undefined && produto.estoque !== null ? produto.estoque.toString() : '0',
+      variacoes: produto.variacoes || []
     });
-    
-    setEditVariacoesPersonalizadas(variacoesPersonalizadas.join('\n'));
+    setEditVariacoesPersonalizadas('');
     
     // Garantir que produto_imagens é um array
     const imagens = Array.isArray(produto.produto_imagens) 
@@ -1180,19 +1127,9 @@ export default function AdminDashboard() {
       formData.append('categoria', editProdutoForm.categoria || '');
       formData.append('marca', editProdutoForm.marca || '');
       formData.append('sku', editProdutoForm.sku || '');
-      // Sempre enviar EAN, mesmo se vazio (para permitir limpar o campo)
-      formData.append('ean', editProdutoForm.ean !== undefined && editProdutoForm.ean !== null ? editProdutoForm.ean : '');
+      formData.append('ean', editProdutoForm.ean || '');
+      formData.append('estoque', editProdutoForm.estoque !== undefined && editProdutoForm.estoque !== null ? editProdutoForm.estoque : '0');
       formData.append('variacoes', JSON.stringify(editProdutoForm.variacoes || []));
-      
-      // Debug: verificar se EAN está sendo enviado
-      console.log('EAN sendo enviado no FormData:', editProdutoForm.ean);
-      console.log('Variações sendo enviadas:', editProdutoForm.variacoes);
-      console.log('FormData completo:', {
-        nome: editProdutoForm.nome,
-        sku: editProdutoForm.sku,
-        ean: editProdutoForm.ean,
-        variacoes: editProdutoForm.variacoes
-      });
 
       // Adicionar novas imagens
       novasImagens.forEach((imagem) => {
@@ -1224,42 +1161,20 @@ export default function AdminDashboard() {
       }
 
       // Verificar se a resposta tem a estrutura esperada
-      // Aceitar qualquer resposta que não seja um erro explícito
-      const isSuccess = response.data && (
-        response.data.success === true || 
-        response.data.success === undefined ||
-        response.status === 200
-      );
-      
-      if (isSuccess) {
+      if (response.data.success === true) {
         // Se tiver produto, usar. Se não, apenas sucesso já é suficiente
-        if (response.data?.produto) {
+        if (response.data.produto) {
           console.log('Produto atualizado com sucesso:', response.data.produto.id);
         }
         
         setEditingProduto(null);
         setNovasImagens([]);
         setImagensParaRemover([]);
-        setEditVariacoesPersonalizadas('');
-        
-        // Recarregar dados apenas se estiver na aba de produtos
-        // Fazer recarregamento em background sem bloquear
-        if (activeTab === 'produtos') {
-          // Não aguardar o loadData para não bloquear a resposta
-          // Usar setTimeout para não bloquear o alert
-          setTimeout(() => {
-            loadData().catch(loadError => {
-              console.error('Erro ao recarregar produtos após atualização:', loadError);
-              // Não limpar produtos em caso de erro - manter os que já estão na tela
-            });
-          }, 100);
-        }
-        
+        loadData();
         alert('Produto atualizado com sucesso!');
       } else {
         console.error('Resposta inesperada:', response.data);
-        // Não limpar produtos mesmo em caso de erro na resposta
-        throw new Error(response.data?.error || 'Resposta do servidor não contém sucesso');
+        throw new Error(response.data.error || 'Resposta do servidor não contém sucesso');
       }
     } catch (error) {
       console.error('Erro completo:', error);
@@ -1283,21 +1198,11 @@ export default function AdminDashboard() {
   const handleDeleteProduto = async (id) => {
     if (!confirm('Deseja realmente excluir este produto?')) return;
     try {
-      const response = await api.delete(`/admin/produtos/${id}`);
-      
-      // Verificar se a resposta indica sucesso
-      if (response.data && response.data.success === true) {
-        loadData();
-        alert('Produto excluído com sucesso!');
-      } else {
-        // Se a resposta não indica sucesso, mas não há erro HTTP
-        const errorMsg = response.data?.error || 'Erro desconhecido ao excluir produto';
-        alert('Erro ao excluir produto: ' + errorMsg);
-      }
+      await api.delete(`/admin/produtos/${id}`);
+      loadData();
+      alert('Produto excluído!');
     } catch (error) {
-      console.error('Erro ao excluir produto:', error);
-      const errorMsg = error.response?.data?.error || error.message || 'Erro ao excluir produto';
-      alert('Erro ao excluir produto: ' + errorMsg);
+      alert('Erro ao excluir produto');
     }
   };
 
@@ -2010,6 +1915,7 @@ export default function AdminDashboard() {
                           <div>
                             <p className="text-xs text-gray-500 mb-1">Empresa</p>
                             <p className="font-semibold text-gray-900">{empresa.nome}</p>
+                            <p className="text-sm text-gray-600">{empresa.cadastro_empresa}</p>
                 </div>
                           <div>
                             <p className="text-xs text-gray-500 mb-1">Clube</p>
@@ -2354,21 +2260,29 @@ export default function AdminDashboard() {
                   <p className="text-xl font-bold text-primary-purple mb-4">
                     R$ {parseFloat(produto.preco).toFixed(2)}
                   </p>
-                  {produto.variacoes && produto.variacoes.length > 0 && (
-                    <div className="mb-4">
-                      <p className="text-xs text-gray-500 mb-1">Variações:</p>
-                      <div className="flex flex-wrap gap-1">
-                        {produto.variacoes.slice(0, 3).map((variacao, idx) => (
-                          <span key={idx} className="text-xs bg-gray-100 px-2 py-1 rounded">
-                            {variacao}
-                          </span>
-                        ))}
-                        {produto.variacoes.length > 3 && (
-                          <span className="text-xs text-gray-500">+{produto.variacoes.length - 3}</span>
-                        )}
+                  <div className="mb-4 flex items-center justify-between">
+                    {produto.variacoes && produto.variacoes.length > 0 ? (
+                      <div className="flex-1">
+                        <p className="text-xs text-gray-500 mb-1">Variações:</p>
+                        <div className="flex flex-wrap gap-1">
+                          {produto.variacoes.slice(0, 3).map((variacao, idx) => (
+                            <span key={idx} className="text-xs bg-gray-100 px-2 py-1 rounded">
+                              {variacao}
+                            </span>
+                          ))}
+                          {produto.variacoes.length > 3 && (
+                            <span className="text-xs text-gray-500">+{produto.variacoes.length - 3}</span>
+                          )}
+                        </div>
                       </div>
+                    ) : (
+                      <div className="flex-1"></div>
+                    )}
+                    <div className="text-right">
+                      <p className="text-xs text-gray-500 mb-1">Estoque:</p>
+                      <span className="text-sm font-semibold text-gray-700">{produto.estoque !== undefined && produto.estoque !== null ? produto.estoque : 0}</span>
                     </div>
-                  )}
+                  </div>
                   <div className="flex gap-2 mt-4">
                     <button
                       onClick={() => handleEditProduto(produto)}
@@ -2460,106 +2374,8 @@ export default function AdminDashboard() {
                       </button>
                     </div>
                     <form onSubmit={handleUpdateProduto} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Nome do Produto
-                          </label>
-                          <input
-                            type="text"
-                            value={editProdutoForm.nome}
-                            onChange={(e) => setEditProdutoForm({ ...editProdutoForm, nome: e.target.value })}
-                            className="w-full px-4 py-2 border rounded-lg"
-                  required
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Preço
-                          </label>
-                          <div className="relative">
-                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 font-semibold">R$</span>
-                            <input
-                              type="number"
-                              step="0.01"
-                              value={editProdutoForm.preco}
-                              onChange={(e) => setEditProdutoForm({ ...editProdutoForm, preco: e.target.value })}
-                              className="w-full pl-10 pr-4 py-2 border rounded-lg"
-                              required
-                            />
-                          </div>
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            SKU
-                          </label>
-                          <input
-                            type="text"
-                            value={editProdutoForm.sku}
-                            onChange={(e) => setEditProdutoForm({ ...editProdutoForm, sku: e.target.value })}
-                            className="w-full px-4 py-2 border rounded-lg"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            EAN
-                          </label>
-                          <input
-                            type="text"
-                            value={editProdutoForm.ean}
-                            onChange={(e) => setEditProdutoForm({ ...editProdutoForm, ean: e.target.value })}
-                            className="w-full px-4 py-2 border rounded-lg"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Categoria
-                          </label>
-                          <select
-                            value={editProdutoForm.categoria}
-                            onChange={(e) => setEditProdutoForm({ ...editProdutoForm, categoria: e.target.value })}
-                            className="w-full px-4 py-2 border rounded-lg"
-                          >
-                            <option value="">Selecione a Categoria</option>
-                            {categorias.map((cat) => (
-                              <option key={cat.id} value={cat.nome}>
-                                {cat.nome}
-                              </option>
-                  ))}
-                </select>
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Marca
-                          </label>
-                <select
-                            value={editProdutoForm.marca}
-                            onChange={(e) => setEditProdutoForm({ ...editProdutoForm, marca: e.target.value })}
-                            className="w-full px-4 py-2 border rounded-lg"
-                          >
-                            <option value="">Selecione a Marca</option>
-                            {marcas.map((marca) => (
-                              <option key={marca.id} value={marca.nome}>
-                                {marca.nome}
-                              </option>
-                  ))}
-                </select>
-              </div>
-                      </div>
+                      {/* Seção de Imagens - NO TOPO */}
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Descrição
-                        </label>
-                        <textarea
-                          value={editProdutoForm.descricao}
-                          onChange={(e) => setEditProdutoForm({ ...editProdutoForm, descricao: e.target.value })}
-                          className="w-full px-4 py-2 border rounded-lg"
-                          rows="4"
-                        />
-          </div>
-
-                      {/* Seção de Imagens */}
-                      <div className="border-t pt-4">
                         <div className="flex justify-between items-center mb-3">
                           <label className="block text-sm font-medium text-gray-700">
                             Imagens do Produto (máximo 5 imagens)
@@ -2636,29 +2452,137 @@ export default function AdminDashboard() {
             </div>
                         )}
 
-                        {/* Input para adicionar novas imagens */}
-                        <div className="border-2 border-dashed border-gray-300 rounded-lg p-4">
-                <input
-                            type="file"
-                            accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
-                            multiple
-                            onChange={handleAddNovasImagens}
+                      </div>
+
+                      {/* Card de Upload de Imagem - ABAIXO DAS IMAGENS */}
+                      <div className="border-2 border-dashed border-gray-300 rounded-lg p-3 max-w-md">
+                        <input
+                          type="file"
+                          accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
+                          multiple
+                          onChange={handleAddNovasImagens}
+                          className="w-full px-3 py-1.5 border rounded-lg text-sm"
+                        />
+                        <p className="text-xs text-gray-500 mt-2 flex justify-between items-center">
+                          <span>Selecione novas imagens (JPEG, JPG, PNG, GIF ou WEBP)</span>
+                          <span className="text-gray-400 ml-2">Total: {editProdutoImagens.length + novasImagens.length} de 5 imagens</span>
+                        </p>
+                      </div>
+
+                      {/* Outras Informações - ABAIXO DO UPLOAD */}
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Nome do Produto
+                          </label>
+                          <input
+                            type="text"
+                            value={editProdutoForm.nome}
+                            onChange={(e) => setEditProdutoForm({ ...editProdutoForm, nome: e.target.value })}
+                            className="w-full px-4 py-2 border rounded-lg"
+                            required
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Preço
+                          </label>
+                          <div className="relative">
+                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 font-semibold">R$</span>
+                            <input
+                              type="number"
+                              step="0.01"
+                              value={editProdutoForm.preco}
+                              onChange={(e) => setEditProdutoForm({ ...editProdutoForm, preco: e.target.value })}
+                              className="w-full pl-10 pr-4 py-2 border rounded-lg"
+                              required
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            SKU
+                          </label>
+                          <input
+                            type="text"
+                            value={editProdutoForm.sku}
+                            onChange={(e) => setEditProdutoForm({ ...editProdutoForm, sku: e.target.value })}
                             className="w-full px-4 py-2 border rounded-lg"
                           />
-                          <p className="text-sm text-gray-500 mt-2">
-                            Selecione novas imagens (JPEG, JPG, PNG, GIF ou WEBP)
-                          </p>
-                          <p className="text-xs text-gray-400 mt-1">
-                            Total: {editProdutoImagens.length + novasImagens.length} de 5 imagens
-                          </p>
                         </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            EAN
+                          </label>
+                          <input
+                            type="text"
+                            value={editProdutoForm.ean}
+                            onChange={(e) => setEditProdutoForm({ ...editProdutoForm, ean: e.target.value })}
+                            className="w-full px-4 py-2 border rounded-lg"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Categoria
+                          </label>
+                          <select
+                            value={editProdutoForm.categoria}
+                            onChange={(e) => setEditProdutoForm({ ...editProdutoForm, categoria: e.target.value })}
+                            className="w-full px-4 py-2 border rounded-lg"
+                          >
+                            <option value="">Selecione a Categoria</option>
+                            {categorias.map((cat) => (
+                              <option key={cat.id} value={cat.nome}>
+                                {cat.nome}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Marca
+                          </label>
+                          <select
+                            value={editProdutoForm.marca}
+                            onChange={(e) => setEditProdutoForm({ ...editProdutoForm, marca: e.target.value })}
+                            className="w-full px-4 py-2 border rounded-lg"
+                          >
+                            <option value="">Selecione a Marca</option>
+                            {marcas.map((marca) => (
+                              <option key={marca.id} value={marca.nome}>
+                                {marca.nome}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Descrição
+                        </label>
+                        <textarea
+                          value={editProdutoForm.descricao}
+                          onChange={(e) => setEditProdutoForm({ ...editProdutoForm, descricao: e.target.value })}
+                          className="w-full px-4 py-2 border rounded-lg"
+                          rows="4"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Estoque
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={editProdutoForm.estoque}
+                          onChange={(e) => setEditProdutoForm({ ...editProdutoForm, estoque: e.target.value })}
+                          className="w-full px-4 py-2 border rounded-lg"
+                        />
                       </div>
 
                       {/* Seção de Variações */}
-                      <div className="border-t pt-4">
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Variações
-                        </label>
+                      <div>
+                        <label className="block mb-2">Variações</label>
                         <div className="space-y-2">
                           <div className="flex flex-wrap gap-2 mb-2">
                             {tamanhos.map((tamanho) => {
@@ -2673,7 +2597,7 @@ export default function AdminDashboard() {
                                       : [...(editProdutoForm.variacoes || []), tamanho.nome];
                                     setEditProdutoForm({ ...editProdutoForm, variacoes: novasVariacoes });
                                   }}
-                                  className={`px-4 py-2 rounded-lg border transition-colors ${
+                                  className={`px-4 py-2 rounded-lg border ${
                                     isSelected
                                       ? 'bg-primary-purple text-white border-primary-purple'
                                       : 'bg-white text-gray-700 border-gray-300 hover:border-primary-purple'
@@ -2721,7 +2645,6 @@ export default function AdminDashboard() {
                             setEditingProduto(null);
                             setNovasImagens([]);
                             setImagensParaRemover([]);
-                            setEditVariacoesPersonalizadas('');
                             setMostrarVisualizadorImagens(false);
                           }}
                           className="flex-1 bg-gray-300 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-400 transition-colors"
@@ -3102,7 +3025,7 @@ export default function AdminDashboard() {
               <div className="grid grid-cols-2 gap-4">
                 <input
                   type="text"
-                  placeholder="Nome do Produto"
+                  placeholder="Nome do Produto *"
                   value={produtoForm.nome}
                   onChange={(e) => setProdutoForm({ ...produtoForm, nome: e.target.value })}
                   className="px-4 py-2 border rounded-lg"
@@ -3113,7 +3036,7 @@ export default function AdminDashboard() {
                   <input
                     type="number"
                     step="0.01"
-                    placeholder="0.00"
+                    placeholder="Valor *"
                     value={produtoForm.preco}
                     onChange={(e) => setProdutoForm({ ...produtoForm, preco: e.target.value })}
                     className="w-full pl-10 pr-4 py-2 border rounded-lg"
@@ -3122,24 +3045,27 @@ export default function AdminDashboard() {
                 </div>
                   <input
                     type="text"
-                    placeholder="SKU"
+                    placeholder="SKU *"
                     value={produtoForm.sku}
                     onChange={(e) => setProdutoForm({ ...produtoForm, sku: e.target.value })}
                     className="px-4 py-2 border rounded-lg"
+                    required
                   />
                   <input
                     type="text"
-                    placeholder="EAN"
+                    placeholder="EAN *"
                     value={produtoForm.ean}
                     onChange={(e) => setProdutoForm({ ...produtoForm, ean: e.target.value })}
                     className="px-4 py-2 border rounded-lg"
+                    required
                   />
                 <select
                   value={produtoForm.categoria}
                   onChange={(e) => setProdutoForm({ ...produtoForm, categoria: e.target.value })}
                   className="px-4 py-2 border rounded-lg"
+                  required
                 >
-                  <option value="">Selecione a Categoria</option>
+                  <option value="">Selecione a Categoria *</option>
                   {categorias.map((cat) => (
                     <option key={cat.id} value={cat.nome}>
                       {cat.nome}
@@ -3150,8 +3076,9 @@ export default function AdminDashboard() {
                   value={produtoForm.marca}
                   onChange={(e) => setProdutoForm({ ...produtoForm, marca: e.target.value })}
                   className="px-4 py-2 border rounded-lg"
+                  required
                 >
-                  <option value="">Selecione a Marca</option>
+                  <option value="">Selecione a Marca *</option>
                   {marcas.map((marca) => (
                     <option key={marca.id} value={marca.nome}>
                       {marca.nome}
@@ -3160,11 +3087,21 @@ export default function AdminDashboard() {
                 </select>
               </div>
               <textarea
-                placeholder="Descrição"
+                placeholder="Descrição *"
                 value={produtoForm.descricao}
                 onChange={(e) => setProdutoForm({ ...produtoForm, descricao: e.target.value })}
                 className="w-full px-4 py-2 border rounded-lg"
                 rows="3"
+                required
+              />
+              <input
+                type="number"
+                placeholder="Estoque *"
+                min="0"
+                value={produtoForm.estoque}
+                onChange={(e) => setProdutoForm({ ...produtoForm, estoque: e.target.value })}
+                className="px-4 py-2 border rounded-lg"
+                required
               />
               <div>
                 <label className="block mb-2">Variações</label>
@@ -3518,7 +3455,9 @@ export default function AdminDashboard() {
                               
                               const statusColors = {
                                 pendente: 'bg-yellow-100 text-yellow-800',
+                                'verificando estoque': 'bg-blue-100 text-blue-800',
                                 aprovado: 'bg-green-100 text-green-800',
+                                'produto sem estoque': 'bg-orange-100 text-orange-800',
                                 rejeitado: 'bg-red-100 text-red-800'
                               };
 
@@ -3548,7 +3487,7 @@ export default function AdminDashboard() {
                                           {pedido.status?.toUpperCase() || 'PENDENTE'}
                                         </span>
                                         <div className="flex gap-2 ml-auto" onClick={(e) => e.stopPropagation()}>
-                                          {pedido.status === 'pendente' && (
+                                          {(pedido.status === 'pendente' || pedido.status === 'verificando estoque') && (
                                             <>
                                               <button
                                                 onClick={async (e) => {
@@ -3612,13 +3551,13 @@ export default function AdminDashboard() {
                                         <strong>Empresa:</strong> {pedido.funcionarios?.empresas?.nome || 'N/A'}
                                       </p>
                                       <p className="text-sm text-gray-600">
-                                        <strong>Cadastro Empresa:</strong> {pedido.funcionarios?.cadastro_empresa || 'N/A'}
+                                        <strong>Cadastro Empresa:</strong> {pedido.funcionarios?.empresas?.cadastro_empresa || pedido.funcionarios?.cadastro_empresa || 'N/A'}
                                       </p>
                                       <p className="text-sm text-gray-600">
-                                        <strong>Clube:</strong> {pedido.funcionarios?.cadastro_clube || 'N/A'}
+                                        <strong>Clube:</strong> {pedido.funcionarios?.clubes?.nome || 'N/A'}
                                       </p>
                                       <p className="text-sm text-gray-600">
-                                        <strong>Cadastro Clube:</strong> {pedido.funcionarios?.clubes?.cadastro_clube ? String(pedido.funcionarios.clubes.cadastro_clube).trim() : 'N/A'}
+                                        <strong>Cadastro Clube:</strong> {pedido.funcionarios?.cadastro_clube || 'N/A'}
                                       </p>
                                       <p className="text-sm text-gray-600">
                                         Data: {dataFormatada} às {horaFormatada}
@@ -3668,69 +3607,84 @@ export default function AdminDashboard() {
                                         <p className="text-sm font-semibold text-gray-700 mb-3">Itens do Pedido ({quantidadeItens}):</p>
                                         <div className="space-y-2">
                                           {pedido.pedido_itens?.map((item, index) => {
-                                            // Debug: verificar se item tem ID
-                                            if (!item.id) {
-                                              console.warn('Item sem ID:', item, 'Index:', index);
-                                            }
+                                            const itemStatus = item.status || 'pendente';
+                                            const itemStatusColors = {
+                                              pendente: 'bg-yellow-100 text-yellow-800',
+                                              'verificando estoque': 'bg-blue-100 text-blue-800',
+                                              aprovado: 'bg-green-100 text-green-800',
+                                              'produto sem estoque': 'bg-orange-100 text-orange-800',
+                                              rejeitado: 'bg-red-100 text-red-800'
+                                            };
+                                            
                                             return (
-                                            <div key={item.id || index} className="flex justify-between items-start text-sm bg-white rounded-lg p-3 border border-gray-200">
-                                              <div className="flex-1">
-                                                <p className="font-medium text-gray-800">
-                                                  {item.produtos?.nome || 'Produto não encontrado'}
-                                                </p>
-                                                {item.variacao && (
-                                                  <p className="text-xs text-gray-500 mt-1">Variação: {item.variacao}</p>
-                                                )}
-                                                {item.produtos?.descricao && (
-                                                  <p className="text-xs text-gray-400 mt-1 line-clamp-2">{item.produtos.descricao}</p>
-                                                )}
-                                              </div>
-                                              <div className="flex items-center gap-3 ml-4">
-                                                <div className="text-right">
-                                                  <p className="text-gray-600">
-                                                    {item.quantidade}x R$ {item.preco.toFixed(2).replace('.', ',')}
-                                                  </p>
-                                                  <p className="font-semibold text-gray-800">
-                                                    = R$ {(item.quantidade * item.preco).toFixed(2).replace('.', ',')}
-                                                  </p>
+                                              <div key={index} className="flex justify-between items-start text-sm bg-white rounded-lg p-3 border border-gray-200">
+                                                <div className="flex-1">
+                                                  <div className="flex items-center gap-2 mb-1">
+                                                    <p className="font-medium text-gray-800">
+                                                      {item.produtos?.nome || 'Produto não encontrado'}
+                                                    </p>
+                                                    <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+                                                      itemStatusColors[itemStatus] || itemStatusColors.pendente
+                                                    }`}>
+                                                      {itemStatus?.toUpperCase() || 'PENDENTE'}
+                                                    </span>
+                                                  </div>
+                                                  {item.variacao && (
+                                                    <p className="text-xs text-gray-500 mt-1">Variação: {item.variacao}</p>
+                                                  )}
+                                                  {item.produtos?.descricao && (
+                                                    <p className="text-xs text-gray-400 mt-1 line-clamp-2">{item.produtos.descricao}</p>
+                                                  )}
                                                 </div>
-                                                <button
-                                                  onClick={async (e) => {
-                                                    e.stopPropagation();
-                                                    
-                                                    // Verificar se o item tem ID
-                                                    if (!item.id) {
-                                                      console.error('Item sem ID:', item);
-                                                      alert('Erro: Item não possui ID válido. Não é possível deletar.');
-                                                      return;
-                                                    }
-                                                    
-                                                    if (confirm(`Tem certeza que deseja excluir "${item.produtos?.nome || 'este produto'}" deste pedido?`)) {
-                                                      try {
-                                                        console.log('Deletando item:', { pedidoId: pedido.id, itemId: item.id });
-                                                        const response = await api.delete(`/admin/pedidos/${pedido.id}/itens/${item.id}`);
-                                                        console.log('Resposta do servidor:', response.data);
-                                                        
-                                                        if (response.data && response.data.success === true) {
-                                                          loadData();
-                                                          alert('Produto removido do pedido com sucesso!');
-                                                        } else {
-                                                          alert('Erro ao remover produto: ' + (response.data?.error || 'Resposta inesperada do servidor'));
-                                                        }
-                                                      } catch (error) {
-                                                        console.error('Erro completo:', error);
-                                                        console.error('Resposta do erro:', error.response?.data);
-                                                        alert('Erro ao remover produto: ' + (error.response?.data?.error || error.response?.data?.message || error.message || 'Erro desconhecido'));
-                                                      }
-                                                    }
-                                                  }}
-                                                  className="px-2 py-1 bg-red-500 text-white rounded text-xs font-semibold hover:bg-red-600 transition-colors whitespace-nowrap"
-                                                  title="Excluir produto do pedido"
-                                                >
-                                                  ✕
-                                                </button>
+                                                <div className="text-right ml-4 flex flex-col items-end gap-2">
+                                                  <div>
+                                                    <p className="text-gray-600">
+                                                      {item.quantidade}x R$ {item.preco.toFixed(2).replace('.', ',')}
+                                                    </p>
+                                                    <p className="font-semibold text-gray-800">
+                                                      = R$ {(item.quantidade * item.preco).toFixed(2).replace('.', ',')}
+                                                    </p>
+                                                  </div>
+                                                  {(itemStatus === 'pendente' || itemStatus === 'verificando estoque') && (
+                                                    <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
+                                                      <button
+                                                        onClick={async (e) => {
+                                                          e.stopPropagation();
+                                                          if (confirm('Deseja aprovar este item?')) {
+                                                            try {
+                                                              await api.put(`/admin/pedidos/${pedido.id}/itens/${item.id}/aprovar`);
+                                                              loadData();
+                                                              alert('Item aprovado com sucesso!');
+                                                            } catch (error) {
+                                                              alert('Erro ao aprovar item');
+                                                            }
+                                                          }
+                                                        }}
+                                                        className="px-2 py-1 bg-green-500 text-white rounded text-xs font-semibold hover:bg-green-600 transition-colors"
+                                                      >
+                                                        Aprovar
+                                                      </button>
+                                                      <button
+                                                        onClick={async (e) => {
+                                                          e.stopPropagation();
+                                                          if (confirm('Deseja rejeitar este item?')) {
+                                                            try {
+                                                              await api.put(`/admin/pedidos/${pedido.id}/itens/${item.id}/rejeitar`);
+                                                              loadData();
+                                                              alert('Item rejeitado');
+                                                            } catch (error) {
+                                                              alert('Erro ao rejeitar item');
+                                                            }
+                                                          }
+                                                        }}
+                                                        className="px-2 py-1 bg-red-500 text-white rounded text-xs font-semibold hover:bg-red-600 transition-colors"
+                                                      >
+                                                        Rejeitar
+                                                      </button>
+                                                    </div>
+                                                  )}
+                                                </div>
                                               </div>
-                                            </div>
                                             );
                                           })}
                                         </div>

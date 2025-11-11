@@ -69,10 +69,28 @@ export default function Products() {
       const response = await api.get('/products', {
         params: { page, ...filters }
       });
-      setProducts(response.data.produtos);
-      setTotalPages(response.data.paginacao.totalPages);
+      
+      console.log('Resposta da API de produtos:', response.data);
+      
+      // Verificar se a resposta tem a estrutura esperada
+      if (response.data && response.data.produtos) {
+        setProducts(response.data.produtos || []);
+        setTotalPages(response.data.paginacao?.totalPages || 1);
+        console.log('Produtos carregados:', response.data.produtos.length);
+      } else {
+        console.warn('Resposta da API não tem estrutura esperada:', response.data);
+        setProducts([]);
+        setTotalPages(1);
+      }
     } catch (error) {
       console.error('Erro ao carregar produtos:', error);
+      console.error('Detalhes do erro:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status
+      });
+      // Não limpar produtos em caso de erro - manter os que já estão na tela
+      // setProducts([]); // Comentado para não perder produtos em caso de erro
     } finally {
       setLoading(false);
     }

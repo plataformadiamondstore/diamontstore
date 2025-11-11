@@ -850,7 +850,7 @@ router.get('/funcionarios/uploads', async (req, res) => {
 // ========== PRODUTOS ==========
 router.post('/produtos', uploadImages.array('imagens', 5), async (req, res) => {
   try {
-    const { nome, descricao, preco, categoria, marca, sku, ean, variacoes } = req.body;
+    const { nome, descricao, preco, categoria, marca, sku, variacoes } = req.body;
     
     // Debug: verificar dados recebidos
     console.log('=== CRIAÇÃO DE PRODUTO ===');
@@ -893,15 +893,6 @@ router.post('/produtos', uploadImages.array('imagens', 5), async (req, res) => {
     } else {
       dadosProduto.sku = null;
       console.log('SKU será NULL (não fornecido ou vazio)');
-    }
-    
-    // Adicionar EAN se foi fornecido
-    if (ean !== undefined && ean !== null && ean !== '') {
-      dadosProduto.ean = String(ean);
-      console.log('EAN será salvo:', dadosProduto.ean);
-    } else {
-      dadosProduto.ean = null;
-      console.log('EAN será NULL (não fornecido ou vazio)');
     }
     
     console.log('Dados para inserir:', JSON.stringify(dadosProduto, null, 2));
@@ -983,27 +974,8 @@ router.post('/produtos', uploadImages.array('imagens', 5), async (req, res) => {
       produto_imagens: imagensBuscadas || []
     };
 
-    // Garantir que valores null/undefined sejam tratados corretamente
-    // Converter undefined para null para evitar problemas na serialização JSON
-    Object.keys(produtoCompleto).forEach(key => {
-      if (produtoCompleto[key] === undefined) {
-        produtoCompleto[key] = null;
-      }
-      // Garantir que EAN seja sempre string ou null
-      if (key === 'ean' && produtoCompleto[key] !== null) {
-        produtoCompleto[key] = String(produtoCompleto[key]);
-      }
-    });
-
     // Serializar para garantir que é JSON válido
-    let produtoSerializado;
-    try {
-      produtoSerializado = JSON.parse(JSON.stringify(produtoCompleto));
-    } catch (serializeError) {
-      console.error('Erro ao serializar produto:', serializeError);
-      console.error('Produto completo que causou erro:', produtoCompleto);
-      throw new Error('Erro ao serializar dados do produto: ' + serializeError.message);
-    }
+    const produtoSerializado = JSON.parse(JSON.stringify(produtoCompleto));
 
     res.json({ success: true, produto: produtoSerializado });
   } catch (error) {
@@ -1043,8 +1015,9 @@ router.post('/produtos', uploadImages.array('imagens', 5), async (req, res) => {
 
 router.put('/produtos/:id', uploadImages.array('imagens', 5), async (req, res) => {
   try {
-    const startTime = Date.now();
     console.log('Iniciando atualização do produto:', req.params.id);
+    console.log('Body recebido:', Object.keys(req.body));
+    console.log('Arquivos recebidos:', req.files?.length || 0);
     
     // Ler dados do body (FormData)
     const nome = req.body.nome;
@@ -1053,7 +1026,6 @@ router.put('/produtos/:id', uploadImages.array('imagens', 5), async (req, res) =
     const categoria = req.body.categoria;
     const marca = req.body.marca;
     const sku = req.body.sku;
-    const ean = req.body.ean;
     const variacoes = req.body.variacoes;
     
     const fs = await import('fs/promises');
@@ -1073,68 +1045,40 @@ router.put('/produtos/:id', uploadImages.array('imagens', 5), async (req, res) =
         updateData.sku = null;
       }
     }
-    
-    // EAN: sempre incluir no updateData se foi enviado (mesmo que vazio)
-    if (ean !== undefined) {
-      // Se for string vazia, null ou undefined, definir como null
-      if (ean === null || ean === '' || ean === undefined) {
-        updateData.ean = null;
-      } else {
-        updateData.ean = String(ean).trim();
-      }
-    } else {
-      // EAN não enviado
-    }
     if (variacoes !== undefined && variacoes !== null) {
       try {
-        if (Array.isArray(variacoes)) {
-          updateData.variacoes = variacoes;
-        } else if (typeof variacoes === 'string') {
-          // Tentar parsear JSON
-          if (variacoes.trim() === '') {
-            updateData.variacoes = [];
-          } else {
-            updateData.variacoes = JSON.parse(variacoes);
-          }
-        } else {
-          updateData.variacoes = [];
-        }
+        updateData.variacoes = Array.isArray(variacoes) ? variacoes : JSON.parse(variacoes);
       } catch (e) {
         console.warn('Erro ao parsear variações:', e);
         updateData.variacoes = [];
       }
     }
+    
+    console.log('Dados para atualizar:', Object.keys(updateData));
+    console.log('SKU recebido:', sku);
+    console.log('SKU no updateData:', updateData.sku);
 
-    // Verificar se há dados para atualizar
-    if (Object.keys(updateData).length === 0) {
-      console.warn('Nenhum dado para atualizar');
-      // Continuar mesmo assim para processar imagens
+    // Atualizar produto - NUNCA usar .single() após update
+    console.log('Atualizando produto com dados:', JSON.stringify(updateData, null, 2));
+    const { error: produtoError, data: updateResult } = await supabase
+      .from('produtos')
+      .update(updateData)
+      .eq('id', req.params.id)
+      .select();
+
+    if (produtoError) {
+      console.error('Erro ao atualizar produto:', produtoError);
+      throw produtoError;
     }
+    
+    console.log('Produto atualizado com sucesso. Resultado:', updateResult);
 
-    // Atualizar produto
-    let updateResult = null;
-    if (Object.keys(updateData).length > 0) {
-      const { error: produtoError, data: result } = await supabase
-        .from('produtos')
-        .update(updateData)
-        .eq('id', req.params.id)
-        .select();
-
-      if (produtoError) {
-        console.error('Erro ao atualizar produto:', produtoError);
-        throw produtoError;
-      }
-      
-      updateResult = result;
-    }
-
-    // Usar resultado do update se disponível, senão buscar
+    // Buscar produto atualizado separadamente (sem .single() para evitar erro)
+    // Aguardar um pouco para garantir que o update foi commitado
+    await new Promise(resolve => setTimeout(resolve, 50));
+    
     let produtosBuscados;
-    if (updateResult && updateResult.length > 0) {
-      // Usar o resultado do update (mais rápido - evita busca extra)
-      produtosBuscados = updateResult;
-    } else {
-      // Buscar produto apenas se não tiver resultado do update (caso raro)
+    try {
       const produtoResult = await supabase
         .from('produtos')
         .select('*')
@@ -1142,15 +1086,37 @@ router.put('/produtos/:id', uploadImages.array('imagens', 5), async (req, res) =
         .limit(1);
 
       if (produtoResult.error) {
-        console.error('Erro ao buscar produto:', produtoResult.error);
-        throw produtoResult.error;
+        console.error('Erro ao buscar produto após atualização:', produtoResult.error);
+        // Se o erro for de coerção, tentar buscar sem limit
+        if (produtoResult.error.message && produtoResult.error.message.includes('coerce')) {
+          console.warn('Tentando buscar produto sem limit devido a erro de coerção');
+          const produtoResult2 = await supabase
+            .from('produtos')
+            .select('*')
+            .eq('id', req.params.id);
+          
+          if (produtoResult2.error) {
+            throw produtoResult2.error;
+          }
+          
+          if (!produtoResult2.data || produtoResult2.data.length === 0) {
+            throw new Error('Produto não encontrado após atualização');
+          }
+          
+          produtosBuscados = produtoResult2.data;
+        } else {
+          throw produtoResult.error;
+        }
+      } else {
+        produtosBuscados = produtoResult.data;
       }
 
-      if (!produtoResult.data || produtoResult.data.length === 0) {
+      if (!produtosBuscados || produtosBuscados.length === 0) {
         throw new Error('Produto não encontrado após atualização');
       }
-      
-      produtosBuscados = produtoResult.data;
+    } catch (buscaError) {
+      console.error('Erro na busca do produto:', buscaError);
+      throw buscaError;
     }
 
     // Processar novas imagens se houver
@@ -1192,10 +1158,15 @@ router.put('/produtos/:id', uploadImages.array('imagens', 5), async (req, res) =
 
     // Usar o produto buscado
     const produtoData = produtosBuscados[0];
+    
+    // Debug: verificar se SKU está no produto buscado
+    console.log('Produto buscado após atualização - SKU:', produtoData.sku);
+    console.log('Produto completo:', JSON.stringify(produtoData, null, 2));
 
-    // Buscar imagens do produto - otimizado para buscar apenas o necessário
+    // Buscar imagens do produto separadamente - com tratamento MUITO robusto
     let imagensData = [];
     try {
+      // Buscar imagens com select explícito de campos
       const imagensResult = await supabase
         .from('produto_imagens')
         .select('id, produto_id, url_imagem, ordem, created_at')
@@ -1239,7 +1210,6 @@ router.put('/produtos/:id', uploadImages.array('imagens', 5), async (req, res) =
       nome: String(produtoData.nome || ''),
       descricao: String(produtoData.descricao || ''),
       preco: Number(produtoData.preco || 0),
-      ean: produtoData.ean !== undefined && produtoData.ean !== null ? String(produtoData.ean) : null,
       categoria: String(produtoData.categoria || ''),
       marca: String(produtoData.marca || ''),
       sku: produtoData.sku ? String(produtoData.sku) : null,
@@ -1249,89 +1219,45 @@ router.put('/produtos/:id', uploadImages.array('imagens', 5), async (req, res) =
       produto_imagens: imagensData
     };
 
-    // Garantir que não há valores undefined na resposta
-    Object.keys(produtoResposta).forEach(key => {
-      if (produtoResposta[key] === undefined) {
-        produtoResposta[key] = null;
-      }
-    });
-
     // Resposta final - objeto simples
     const resposta = {
       success: true,
       produto: produtoResposta
     };
 
-    const elapsedTime = Date.now() - startTime;
-    console.log(`Produto atualizado em ${elapsedTime}ms`);
+    console.log('Enviando resposta:', {
+      success: true,
+      produtoId: produtoResposta.id,
+      totalImagens: produtoResposta.produto_imagens.length
+    });
 
-    // Garantir que a resposta seja válida antes de enviar
-    try {
-      // Enviar resposta diretamente
-      res.setHeader('Content-Type', 'application/json');
-      res.status(200).json(resposta);
-    } catch (serializeError) {
-      console.error('Erro ao serializar resposta:', serializeError);
-      // Enviar resposta simplificada em caso de erro de serialização
-      res.status(200).json({
-        success: true,
-        produto: {
-          id: produtoResposta.id,
-          nome: produtoResposta.nome
-        }
-      });
-    }
+    // Enviar resposta diretamente - sem tentar serializar antes
+    res.setHeader('Content-Type', 'application/json');
+    res.status(200).json(resposta);
   } catch (error) {
-    console.error('=== ERRO COMPLETO NA ATUALIZAÇÃO DO PRODUTO ===');
-    console.error('Mensagem:', error.message);
-    console.error('Stack:', error.stack);
-    console.error('Produto ID:', req.params.id);
-    if (error.code) console.error('Código do erro:', error.code);
-    if (error.details) console.error('Detalhes:', error.details);
-    if (error.hint) console.error('Hint:', error.hint);
+    console.error('Erro completo na atualização do produto:', {
+      message: error.message,
+      stack: error.stack,
+      produtoId: req.params.id
+    });
 
     // Limpar arquivos em caso de erro
     const files = req.files || [];
     if (files.length > 0) {
-      try {
-        const fs = await import('fs/promises');
-        for (const file of files) {
-          try {
-            await fs.unlink(file.path);
-            console.log('Arquivo deletado após erro:', file.filename);
-          } catch (e) {
-            console.error('Erro ao deletar arquivo:', e);
-          }
+      const fs = await import('fs/promises');
+      for (const file of files) {
+        try {
+          await fs.unlink(file.path);
+        } catch (e) {
+          console.error('Erro ao deletar arquivo:', e);
         }
-      } catch (fsError) {
-        console.error('Erro ao importar fs:', fsError);
       }
     }
     
-    // Garantir que sempre há uma resposta, mesmo em caso de erro
-    try {
-      const errorMessage = error.message || 'Erro desconhecido ao atualizar produto';
-      console.error('Enviando erro para o cliente:', errorMessage);
-      
-      res.status(500).json({ 
-        success: false,
-        error: errorMessage,
-        details: process.env.NODE_ENV === 'development' ? {
-          stack: error.stack,
-          code: error.code,
-          hint: error.hint,
-          details: error.details
-        } : undefined
-      });
-    } catch (responseError) {
-      console.error('ERRO CRÍTICO: Não foi possível enviar resposta de erro:', responseError);
-      // Tentar enviar resposta mínima
-      try {
-        res.status(500).send('Erro ao atualizar produto');
-      } catch (finalError) {
-        console.error('ERRO FATAL: Não foi possível enviar nenhuma resposta:', finalError);
-      }
-    }
+    res.status(500).json({ 
+      error: error.message,
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
   }
 });
 
@@ -1411,92 +1337,22 @@ router.delete('/produtos/:id/imagens/:imagemId', async (req, res) => {
 
 router.delete('/produtos/:id', async (req, res) => {
   try {
-    const produtoId = req.params.id;
-    console.log('=== DELETANDO PRODUTO ===');
-    console.log('Produto ID:', produtoId);
-
-    // 1. Buscar todas as imagens do produto
-    const { data: imagens, error: imagensError } = await supabase
-      .from('produto_imagens')
-      .select('id, url_imagem')
-      .eq('produto_id', produtoId);
-
-    if (imagensError) {
-      console.error('Erro ao buscar imagens do produto:', imagensError);
-      // Continuar mesmo se houver erro ao buscar imagens
-    }
-
-    // 2. Deletar arquivos físicos das imagens
-    if (imagens && imagens.length > 0) {
-      const fs = await import('fs/promises');
-      const path = await import('path');
-      
-      for (const imagem of imagens) {
-        if (imagem.url_imagem) {
-          try {
-            const filename = imagem.url_imagem.split('/').pop();
-            const filePath = path.join(process.cwd(), 'uploads', 'produtos', filename);
-            await fs.unlink(filePath);
-            console.log('Arquivo físico deletado:', filename);
-          } catch (fileError) {
-            console.warn('Erro ao deletar arquivo físico (continuando):', fileError.message);
-            // Não falhar se o arquivo não existir
-          }
-        }
-      }
-    }
-
-    // 3. Deletar imagens do banco de dados (CASCADE deve fazer isso automaticamente, mas vamos garantir)
-    if (imagens && imagens.length > 0) {
-      const { error: deleteImagensError } = await supabase
-        .from('produto_imagens')
-        .delete()
-        .eq('produto_id', produtoId);
-
-      if (deleteImagensError) {
-        console.warn('Erro ao deletar imagens do banco (continuando):', deleteImagensError);
-        // Continuar mesmo se houver erro
-      } else {
-        console.log(`${imagens.length} imagem(ns) deletada(s) do banco`);
-      }
-    }
-
-    // 4. Deletar o produto
-    const { data: deletedData, error: deleteError } = await supabase
+    const { error } = await supabase
       .from('produtos')
       .delete()
-      .eq('id', produtoId)
-      .select();
+      .eq('id', req.params.id);
 
-    if (deleteError) {
-      console.error('Erro ao deletar produto:', deleteError);
-      throw deleteError;
-    }
-
-    // 5. Verificar se o produto foi realmente deletado
-    if (!deletedData || deletedData.length === 0) {
-      console.warn('Produto não encontrado ou já foi deletado');
-      return res.status(404).json({ 
-        success: false, 
-        error: 'Produto não encontrado' 
-      });
-    }
-
-    console.log('Produto deletado com sucesso:', produtoId);
-    res.json({ success: true, message: 'Produto deletado com sucesso' });
+    if (error) throw error;
+    res.json({ success: true });
   } catch (error) {
-    console.error('Erro completo ao deletar produto:', error);
-    res.status(500).json({ 
-      success: false,
-      error: error.message || 'Erro ao deletar produto' 
-    });
+    res.status(500).json({ error: error.message });
   }
 });
 
 // ========== PEDIDOS (Gestor) ==========
 router.get('/pedidos', async (req, res) => {
   try {
-    const { empresa_id, status, data_inicio, data_fim, funcionario_nome, limit } = req.query;
+    const { empresa_id, status, data_inicio, data_fim, funcionario_nome } = req.query;
 
     let query = supabase
       .from('pedidos')
@@ -1507,9 +1363,8 @@ router.get('/pedidos', async (req, res) => {
           cadastro_empresa,
           cadastro_clube,
           empresa_id,
-          clube_id,
           empresas (id, nome, cadastro_empresa),
-          clubes (nome, cadastro_clube)
+          clubes (nome)
         ),
         pedido_itens (
           *,
@@ -1517,17 +1372,10 @@ router.get('/pedidos', async (req, res) => {
         )
       `)
       .order('created_at', { ascending: false });
-    
-    // Limitar resultados se não houver filtros específicos (para dashboard)
-    if (!empresa_id && !status && !data_inicio && !data_fim && !funcionario_nome) {
-      const limitValue = limit ? parseInt(limit) : 100; // Limite padrão de 100 pedidos
-      query = query.limit(limitValue);
-    } else if (limit) {
-      query = query.limit(parseInt(limit));
-    }
 
-    // Não aplicar filtro empresa_id na query do Supabase (pode não funcionar com SELECT aninhado)
-    // Vamos filtrar depois de receber os dados
+    if (empresa_id) {
+      query = query.eq('funcionarios.empresa_id', empresa_id);
+    }
     if (status) {
       query = query.eq('status', status);
     }
@@ -1540,180 +1388,21 @@ router.get('/pedidos', async (req, res) => {
 
     const { data, error } = await query;
 
-    if (error) {
-      console.error('❌ ERRO na query do Supabase:', error);
-      throw error;
-    }
+    if (error) throw error;
 
     // Filtrar por nome do funcionário se fornecido
     let pedidos = data || [];
-    
-    // Ajustar estrutura: garantir que empresas e clubes sejam objetos
-    pedidos.forEach(pedido => {
-      if (pedido.funcionarios) {
-        // Se empresas é array (relação many-to-many), pegar o primeiro
-        if (Array.isArray(pedido.funcionarios.empresas)) {
-          pedido.funcionarios.empresas = pedido.funcionarios.empresas[0] || null;
-        }
-        
-        // Se clubes é array (relação many-to-many), pegar o primeiro
-        if (Array.isArray(pedido.funcionarios.clubes)) {
-          pedido.funcionarios.clubes = pedido.funcionarios.clubes[0] || null;
-        }
-        
-        // Normalizar clubes: se for objeto vazio ou sem nome válido, tratar como null para forçar busca
-        if (pedido.funcionarios.clubes && typeof pedido.funcionarios.clubes === 'object' && !Array.isArray(pedido.funcionarios.clubes)) {
-          // Se o objeto não tem nome válido, tratar como null para forçar busca
-          if (!pedido.funcionarios.clubes.nome || (typeof pedido.funcionarios.clubes.nome === 'string' && pedido.funcionarios.clubes.nome.trim() === '')) {
-            pedido.funcionarios.clubes = null;
-          }
-        }
-        
-        // Limpar e normalizar estrutura de empresas - garantir APENAS os campos corretos
-        // IMPORTANTE: Criar um novo objeto com apenas os campos permitidos para evitar qualquer campo extra
-        if (pedido.funcionarios.empresas && typeof pedido.funcionarios.empresas === 'object') {
-          // IMPORTANTE: Pegar o valor ANTES de qualquer manipulação
-          const objetoEmpresasOriginal = pedido.funcionarios.empresas;
-          
-          // Extrair APENAS os valores dos campos permitidos
-          const id = objetoEmpresasOriginal.id || null;
-          const nome = objetoEmpresasOriginal.nome || null;
-          
-          // GARANTIR que estamos pegando APENAS cadastro_empresa, sem nenhuma concatenação
-          let cadastroEmpresaValor = objetoEmpresasOriginal.cadastro_empresa;
-          
-          // Se o valor for uma string, garantir que não contém dados de cadastro_clube
-          if (cadastroEmpresaValor && typeof cadastroEmpresaValor === 'string') {
-            // Remover TODAS as ocorrências de cadastro_clube (não apenas a primeira)
-            if (pedido.funcionarios.cadastro_clube) {
-              const cadastroClubeStr = String(pedido.funcionarios.cadastro_clube).trim();
-              if (cadastroClubeStr) {
-                // Escapar caracteres especiais para regex e remover todas as ocorrências
-                const escapedClube = cadastroClubeStr.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                cadastroEmpresaValor = cadastroEmpresaValor.replace(new RegExp(escapedClube, 'g'), '').trim();
-                // Se o valor ficou vazio após remover, usar null
-                if (cadastroEmpresaValor.trim() === '') {
-                  cadastroEmpresaValor = null;
-                }
-              }
-            }
-            cadastroEmpresaValor = cadastroEmpresaValor.trim();
-          } else if (cadastroEmpresaValor) {
-            cadastroEmpresaValor = String(cadastroEmpresaValor).trim();
-          } else {
-            cadastroEmpresaValor = null;
-          }
-          
-          // Criar novo objeto com APENAS os campos permitidos (garantir que não há campos extras)
-          pedido.funcionarios.empresas = {
-            id: id,
-            nome: nome,
-            cadastro_empresa: cadastroEmpresaValor
-          };
-        }
-        
-        // NÃO normalizar clubes aqui - será feito depois da busca
-      }
-    });
-    
-    // Buscar clubes apenas se realmente necessário (quando não vieram do relacionamento)
-    // Otimização: só buscar se houver pedidos sem clube ou com clube sem nome
-    const precisaBuscarClubes = pedidos.some(p => 
-      p.funcionarios && 
-      (!p.funcionarios.clubes || !p.funcionarios.clubes.nome) && 
-      (p.funcionarios.clube_id || p.funcionarios.cadastro_clube)
-    );
-    
-    if (precisaBuscarClubes) {
-      const clubeIdsParaBuscar = new Set();
-      const cadastrosClubeParaBuscar = new Set();
-      
-      pedidos.forEach(pedido => {
-        if (pedido.funcionarios && (!pedido.funcionarios.clubes || !pedido.funcionarios.clubes.nome)) {
-          if (pedido.funcionarios.clube_id) {
-            clubeIdsParaBuscar.add(pedido.funcionarios.clube_id);
-          }
-          if (pedido.funcionarios.cadastro_clube) {
-            cadastrosClubeParaBuscar.add(pedido.funcionarios.cadastro_clube);
-          }
-        }
-      });
-      
-      // Buscar clubes em paralelo (otimização)
-      const [clubesPorIdResult, clubesPorCadastroResult] = await Promise.allSettled([
-        clubeIdsParaBuscar.size > 0 
-          ? supabase.from('clubes').select('id, nome, cadastro_clube').in('id', Array.from(clubeIdsParaBuscar))
-          : Promise.resolve({ data: [], error: null }),
-        cadastrosClubeParaBuscar.size > 0
-          ? supabase.from('clubes').select('id, nome, cadastro_clube').in('cadastro_clube', Array.from(cadastrosClubeParaBuscar))
-          : Promise.resolve({ data: [], error: null })
-      ]);
-      
-      const clubesMapPorId = {};
-      const clubesMapPorCadastro = {};
-      
-      if (clubesPorIdResult.status === 'fulfilled' && clubesPorIdResult.value.data) {
-        clubesPorIdResult.value.data.forEach(clube => {
-          clubesMapPorId[clube.id] = clube;
-        });
-      }
-      
-      if (clubesPorCadastroResult.status === 'fulfilled' && clubesPorCadastroResult.value.data) {
-        clubesPorCadastroResult.value.data.forEach(clube => {
-          clubesMapPorCadastro[clube.cadastro_clube] = clube;
-        });
-      }
-      
-      // Preencher clubes que não foram encontrados pelo relacionamento
-      pedidos.forEach(pedido => {
-        if (pedido.funcionarios && (!pedido.funcionarios.clubes || !pedido.funcionarios.clubes.nome)) {
-          let clubeEncontrado = null;
-          
-          if (pedido.funcionarios.clube_id) {
-            clubeEncontrado = clubesMapPorId[pedido.funcionarios.clube_id];
-          }
-          
-          if (!clubeEncontrado && pedido.funcionarios.cadastro_clube) {
-            clubeEncontrado = clubesMapPorCadastro[pedido.funcionarios.cadastro_clube];
-          }
-          
-          if (clubeEncontrado) {
-            pedido.funcionarios.clubes = clubeEncontrado;
-          } else if (pedido.funcionarios.cadastro_clube) {
-            pedido.funcionarios.clubes = {
-              id: null,
-              nome: null,
-              cadastro_clube: pedido.funcionarios.cadastro_clube
-            };
-          }
-        }
-      });
-    }
-    
-    // Normalizar estrutura de clubes DEPOIS da busca (garantir apenas campos corretos)
-    pedidos.forEach(pedido => {
-      if (pedido.funcionarios && pedido.funcionarios.clubes && typeof pedido.funcionarios.clubes === 'object') {
-        pedido.funcionarios.clubes = {
-          id: pedido.funcionarios.clubes.id || null,
-          nome: pedido.funcionarios.clubes.nome || null,
-          cadastro_clube: pedido.funcionarios.clubes.cadastro_clube || null
-          // Remover qualquer campo que não deveria estar aqui (como cadastro_empresa)
-        };
-      }
-    });
-    
-    // Aplicar filtros que não foram aplicados na query
-    if (empresa_id) {
-      pedidos = pedidos.filter(p => {
-        const empresaId = p.funcionarios?.empresas?.id || p.funcionarios?.empresa_id;
-        return empresaId && empresaId.toString() === empresa_id.toString();
-      });
-    }
-    
     if (funcionario_nome) {
       pedidos = pedidos.filter(p => 
         p.funcionarios?.nome_completo?.toLowerCase().includes(funcionario_nome.toLowerCase())
       );
+    }
+
+    // Debug: verificar se SKU está sendo retornado
+    if (pedidos.length > 0 && pedidos[0].pedido_itens && pedidos[0].pedido_itens.length > 0) {
+      const primeiroItem = pedidos[0].pedido_itens[0];
+      console.log('DEBUG SKU - Produto completo:', JSON.stringify(primeiroItem.produtos, null, 2));
+      console.log('DEBUG SKU - SKU do produto:', primeiroItem.produtos?.sku);
     }
 
     res.json(pedidos);
@@ -1725,9 +1414,29 @@ router.get('/pedidos', async (req, res) => {
 // Aprovar pedido
 router.put('/pedidos/:id/aprovar', async (req, res) => {
   try {
+    // Buscar o pedido atual para verificar o status
+    const { data: pedidoAtual, error: errorBuscar } = await supabase
+      .from('pedidos')
+      .select('status')
+      .eq('id', req.params.id)
+      .single();
+
+    if (errorBuscar) throw errorBuscar;
+
+    // Determinar o novo status baseado no status atual
+    let novoStatus;
+    if (pedidoAtual.status === 'pendente') {
+      novoStatus = 'verificando estoque';
+    } else if (pedidoAtual.status === 'verificando estoque') {
+      novoStatus = 'aprovado';
+    } else {
+      // Se já estiver aprovado ou outro status, manter ou definir como aprovado
+      novoStatus = 'aprovado';
+    }
+
     const { data, error } = await supabase
       .from('pedidos')
-      .update({ status: 'aprovado' })
+      .update({ status: novoStatus })
       .eq('id', req.params.id)
       .select()
       .single();
@@ -1742,9 +1451,27 @@ router.put('/pedidos/:id/aprovar', async (req, res) => {
 // Rejeitar pedido
 router.put('/pedidos/:id/rejeitar', async (req, res) => {
   try {
+    // Buscar o pedido atual para verificar o status
+    const { data: pedidoAtual, error: errorBuscar } = await supabase
+      .from('pedidos')
+      .select('status')
+      .eq('id', req.params.id)
+      .single();
+
+    if (errorBuscar) throw errorBuscar;
+
+    // Determinar o novo status baseado no status atual
+    let novoStatus;
+    if (pedidoAtual.status === 'verificando estoque') {
+      novoStatus = 'produto sem estoque';
+    } else {
+      // Se for pendente ou outro status, usar rejeitado (comportamento padrão)
+      novoStatus = 'rejeitado';
+    }
+
     const { data, error } = await supabase
       .from('pedidos')
-      .update({ status: 'rejeitado' })
+      .update({ status: novoStatus })
       .eq('id', req.params.id)
       .select()
       .single();
@@ -1756,80 +1483,113 @@ router.put('/pedidos/:id/rejeitar', async (req, res) => {
   }
 });
 
-// Excluir item específico de um pedido
-router.delete('/pedidos/:pedidoId/itens/:itemId', async (req, res) => {
+// Aprovar item do pedido
+router.put('/pedidos/:pedidoId/itens/:itemId/aprovar', async (req, res) => {
   try {
     const { pedidoId, itemId } = req.params;
-    console.log('=== DELETANDO ITEM DO PEDIDO ===');
-    console.log('Pedido ID:', pedidoId, 'Tipo:', typeof pedidoId);
-    console.log('Item ID:', itemId, 'Tipo:', typeof itemId);
-
-    // Converter para número se necessário
-    const pedidoIdNum = parseInt(pedidoId, 10);
-    const itemIdNum = parseInt(itemId, 10);
-
-    if (isNaN(pedidoIdNum) || isNaN(itemIdNum)) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'IDs inválidos' 
-      });
-    }
-
-    // Verificar se o item pertence ao pedido
-    const { data: item, error: itemError } = await supabase
+    
+    // Buscar o item atual com informações do produto
+    const { data: itemAtual, error: errorBuscar } = await supabase
       .from('pedido_itens')
-      .select('id, pedido_id')
-      .eq('id', itemIdNum)
-      .eq('pedido_id', pedidoIdNum);
+      .select('status, produto_id, quantidade')
+      .eq('id', itemId)
+      .eq('pedido_id', pedidoId)
+      .single();
 
-    if (itemError) {
-      console.error('Erro ao buscar item:', itemError);
-      return res.status(500).json({ 
-        success: false, 
-        error: 'Erro ao buscar item: ' + itemError.message 
-      });
+    if (errorBuscar) throw errorBuscar;
+    if (!itemAtual) {
+      return res.status(404).json({ error: 'Item não encontrado' });
     }
 
-    if (!item || item.length === 0) {
-      console.log('Item não encontrado');
-      return res.status(404).json({ 
-        success: false, 
-        error: 'Item não encontrado ou não pertence a este pedido' 
-      });
+    // Determinar o novo status baseado no status atual
+    let novoStatus;
+    if (itemAtual.status === 'pendente' || !itemAtual.status) {
+      novoStatus = 'verificando estoque';
+    } else if (itemAtual.status === 'verificando estoque') {
+      novoStatus = 'aprovado';
+    } else {
+      novoStatus = 'aprovado';
     }
 
-    console.log('Item encontrado:', item);
-
-    // Deletar o item
-    const { data: deletedData, error: deleteError } = await supabase
+    // Atualizar status do item
+    const { data, error } = await supabase
       .from('pedido_itens')
-      .delete()
-      .eq('id', itemIdNum)
-      .eq('pedido_id', pedidoIdNum)
-      .select();
+      .update({ status: novoStatus })
+      .eq('id', itemId)
+      .eq('pedido_id', pedidoId)
+      .select()
+      .single();
 
-    if (deleteError) {
-      console.error('Erro ao deletar item do pedido:', deleteError);
-      return res.status(500).json({ 
-        success: false,
-        error: 'Erro ao deletar item: ' + deleteError.message 
-      });
+    if (error) throw error;
+
+    // Se o status mudou para 'aprovado', reduzir estoque do produto
+    if (novoStatus === 'aprovado' && itemAtual.produto_id) {
+      // Buscar produto atual
+      const { data: produto, error: errorProduto } = await supabase
+        .from('produtos')
+        .select('estoque, ativo')
+        .eq('id', itemAtual.produto_id)
+        .single();
+
+      if (!errorProduto && produto) {
+        const novoEstoque = Math.max(0, (produto.estoque || 0) - (itemAtual.quantidade || 0));
+        const novoAtivo = novoEstoque > 0;
+
+        // Atualizar estoque e status ativo do produto
+        await supabase
+          .from('produtos')
+          .update({ 
+            estoque: novoEstoque,
+            ativo: novoAtivo
+          })
+          .eq('id', itemAtual.produto_id);
+      }
     }
 
-    console.log('Item deletado com sucesso:', deletedData);
-
-    // Não deletar o pedido automaticamente - deixar o pedido existir mesmo sem itens
-    // O admin pode decidir se quer deletar o pedido vazio manualmente
-
-    res.json({ success: true, message: 'Item deletado com sucesso' });
+    res.json({ success: true, item: data });
   } catch (error) {
-    console.error('=== ERRO COMPLETO AO DELETAR ITEM ===');
-    console.error('Erro:', error);
-    console.error('Stack:', error.stack);
-    res.status(500).json({ 
-      success: false,
-      error: error.message || 'Erro ao deletar item do pedido' 
-    });
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Rejeitar item do pedido
+router.put('/pedidos/:pedidoId/itens/:itemId/rejeitar', async (req, res) => {
+  try {
+    const { pedidoId, itemId } = req.params;
+    
+    // Buscar o item atual para verificar o status
+    const { data: itemAtual, error: errorBuscar } = await supabase
+      .from('pedido_itens')
+      .select('status')
+      .eq('id', itemId)
+      .eq('pedido_id', pedidoId)
+      .single();
+
+    if (errorBuscar) throw errorBuscar;
+    if (!itemAtual) {
+      return res.status(404).json({ error: 'Item não encontrado' });
+    }
+
+    // Determinar o novo status baseado no status atual
+    let novoStatus;
+    if (itemAtual.status === 'verificando estoque') {
+      novoStatus = 'produto sem estoque';
+    } else {
+      novoStatus = 'rejeitado';
+    }
+
+    const { data, error } = await supabase
+      .from('pedido_itens')
+      .update({ status: novoStatus })
+      .eq('id', itemId)
+      .eq('pedido_id', pedidoId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    res.json({ success: true, item: data });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 });
 

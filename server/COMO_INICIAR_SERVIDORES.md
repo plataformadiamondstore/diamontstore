@@ -96,7 +96,33 @@ export default defineConfig({
 
 ## 🚀 COMO INICIAR OS SERVIDORES
 
-### Método 1: PowerShell (Recomendado)
+### ⚡ Método Rápido (Recomendado) - Iniciar Tudo de Uma Vez
+
+Execute os seguintes comandos em sequência no PowerShell:
+
+**1. Iniciar Backend:**
+```powershell
+Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd C:\server\server; npm run dev" -WindowStyle Minimized
+```
+
+**2. Iniciar Frontend:**
+```powershell
+Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd C:\server\client; npm run dev" -WindowStyle Minimized
+```
+
+**3. Abrir Navegador Automaticamente:**
+```powershell
+Start-Sleep -Seconds 5
+Start-Process "http://localhost:5173"
+```
+
+**✅ Vantagens deste método:**
+- Inicia ambos os servidores automaticamente
+- Janelas minimizadas (não poluem a tela)
+- Abre o navegador automaticamente após alguns segundos
+- Servidores continuam rodando mesmo fechando o terminal principal
+
+### Método 2: PowerShell Manual (Dois Terminais)
 
 **Terminal 1 - Backend:**
 ```powershell
@@ -112,28 +138,7 @@ npm install
 npm run dev
 ```
 
-### Método 2: Janelas Minimizadas (Automático)
-
-**Backend:**
-```powershell
-cd C:\server\server
-Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd C:\server\server; npm run dev" -WindowStyle Minimized
-```
-
-**Frontend:**
-```powershell
-cd C:\server\client
-Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd C:\server\client; npm run dev" -WindowStyle Minimized
-```
-
-### Método 3: Abrir Navegador Automaticamente
-
-Após iniciar os servidores, aguarde alguns segundos e execute:
-
-```powershell
-Start-Sleep -Seconds 5
-Start-Process "http://localhost:5173"
-```
+**Depois, abra manualmente:** http://localhost:5173
 
 ## 📍 URLS DOS SERVIDORES
 
@@ -234,6 +239,12 @@ Stop-Process -Id <PID> -Force
 
 ## 🔄 ATUALIZAÇÕES REALIZADAS
 
+### Data: Atual (2025)
+
+1. ✅ **Procedimento de inicialização atualizado** - Método rápido com janelas minimizadas agora é o método recomendado
+2. ✅ Documentação reorganizada para destacar o método mais eficiente
+3. ✅ Adicionado procedimento completo de inicialização em 3 passos simples
+
 ### Data: 09/11/2025
 
 1. ✅ Criado arquivo `nodemon.json` para hot reload do backend
@@ -275,7 +286,7 @@ npm run dev
 
 ---
 
-**Última atualização**: 09/11/2025  
+**Última atualização**: Atual (2025) - Procedimento de inicialização atualizado  
 **Reorganização**: 09/11/2025 - Estrutura com subpastas
 
 

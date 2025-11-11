@@ -169,9 +169,9 @@ export default function ManagerDashboard() {
             <div class="info-pedido">
               <p><strong>Funcionário:</strong> ${pedido.funcionarios?.nome_completo || 'N/A'}</p>
               <p><strong>Empresa:</strong> ${pedido.funcionarios?.empresas?.nome || 'N/A'}</p>
-              <p><strong>Cadastro Empresa:</strong> ${pedido.funcionarios?.empresas?.cadastro_empresa || pedido.funcionarios?.cadastro_empresa || 'N/A'}</p>
+              <p><strong>Cadastro Empresa:</strong> ${pedido.funcionarios?.cadastro_empresa || pedido.funcionarios?.empresas?.cadastro_empresa || 'N/A'}</p>
               <p><strong>Clube:</strong> ${pedido.funcionarios?.clubes?.nome || 'N/A'}</p>
-              <p><strong>Cadastro Clube:</strong> ${pedido.funcionarios?.clubes?.cadastro_clube || pedido.funcionarios?.cadastro_clube || 'N/A'}</p>
+              <p><strong>Cadastro Clube:</strong> ${pedido.funcionarios?.cadastro_clube || pedido.funcionarios?.clubes?.cadastro_clube || 'N/A'}</p>
               <p><strong>Data:</strong> ${dataFormatada} às ${horaFormatada}</p>
               <p><strong>Status:</strong> ${pedido.status}</p>
             </div>
@@ -250,6 +250,10 @@ export default function ManagerDashboard() {
         return 'bg-green-100 text-green-800';
       case 'rejeitado':
         return 'bg-red-100 text-red-800';
+      case 'verificando estoque':
+        return 'bg-blue-100 text-blue-800';
+      case 'produto sem estoque':
+        return 'bg-orange-100 text-orange-800';
       default:
         return 'bg-yellow-100 text-yellow-800';
     }
@@ -273,6 +277,8 @@ export default function ManagerDashboard() {
   const pedidosPendentes = todosPedidos.filter(p => p.status === 'pendente');
   const pedidosAprovados = todosPedidos.filter(p => p.status === 'aprovado');
   const pedidosRejeitados = todosPedidos.filter(p => p.status === 'rejeitado');
+  const pedidosVerificandoEstoque = todosPedidos.filter(p => p.status === 'verificando estoque');
+  const pedidosSemEstoque = todosPedidos.filter(p => p.status === 'produto sem estoque');
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -319,7 +325,9 @@ export default function ManagerDashboard() {
               >
                 <option value="">Todos os status</option>
                 <option value="pendente">Pendente</option>
+                <option value="verificando estoque">Verificando Estoque</option>
                 <option value="aprovado">Aprovado</option>
+                <option value="produto sem estoque">Produto Sem Estoque</option>
                 <option value="rejeitado">Rejeitado</option>
               </select>
             </div>
@@ -440,13 +448,13 @@ export default function ManagerDashboard() {
                           <strong>Empresa:</strong> {pedido.funcionarios?.empresas?.nome}
                         </p>
                         <p className="text-sm text-gray-600">
-                          <strong>Cadastro Empresa:</strong> {pedido.funcionarios?.empresas?.cadastro_empresa || pedido.funcionarios?.cadastro_empresa || 'N/A'}
+                          <strong>Cadastro Empresa:</strong> {pedido.funcionarios?.cadastro_empresa}
                         </p>
                         <p className="text-sm text-gray-600">
-                          <strong>Clube:</strong> {pedido.funcionarios?.clubes?.nome || 'N/A'}
+                          <strong>Clube:</strong> {pedido.funcionarios?.clubes?.nome}
                         </p>
                         <p className="text-sm text-gray-600">
-                          <strong>Cadastro Clube:</strong> {String(pedido.funcionarios?.clubes?.cadastro_clube || pedido.funcionarios?.cadastro_clube || 'N/A')}
+                          <strong>Cadastro Clube:</strong> {pedido.funcionarios?.cadastro_clube}
                         </p>
                         <p className="text-sm text-gray-600">
                           {new Date(pedido.created_at).toLocaleString('pt-BR')}
@@ -493,7 +501,7 @@ export default function ManagerDashboard() {
                               R$ {total.toFixed(2).replace('.', ',')}
                             </p>
                           </div>
-                          {pedido.status === 'pendente' && (
+                          {(pedido.status === 'pendente' || pedido.status === 'verificando estoque') && (
                             <div className="flex gap-2">
                               <button
                                 onClick={() => handleAprovar(pedido.id)}

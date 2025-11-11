@@ -36,6 +36,10 @@ export default function Orders() {
         return 'bg-green-100 text-green-800';
       case 'rejeitado':
         return 'bg-red-100 text-red-800';
+      case 'verificando estoque':
+        return 'bg-blue-100 text-blue-800';
+      case 'produto sem estoque':
+        return 'bg-orange-100 text-orange-800';
       default:
         return 'bg-yellow-100 text-yellow-800';
     }
@@ -47,6 +51,10 @@ export default function Orders() {
         return 'Aprovado';
       case 'rejeitado':
         return 'Rejeitado';
+      case 'verificando estoque':
+        return 'Verificando Estoque';
+      case 'produto sem estoque':
+        return 'Produto Sem Estoque';
       default:
         return 'Pendente';
     }
