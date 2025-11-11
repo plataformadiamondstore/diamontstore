@@ -214,8 +214,8 @@ export default function ManagerDashboard() {
               <p><strong>Funcionário:</strong> ${func?.nome_completo || 'N/A'}</p>
               <p><strong>Empresa:</strong> ${emp?.nome || 'N/A'}</p>
               ${(func?.cadastro_empresa || emp?.cadastro_empresa) ? `<p><strong>Cadastro Empresa:</strong> ${func?.cadastro_empresa || emp?.cadastro_empresa}</p>` : ''}
-              <p><strong>Clube:</strong> ${clb?.nome || 'N/A'}</p>
-              ${(func?.cadastro_clube || clb?.cadastro_clube) ? `<p><strong>Cadastro Clube:</strong> ${func?.cadastro_clube || clb?.cadastro_clube}</p>` : ''}
+              <p><strong>Clube:</strong> ${clb?.nome || func?.clubes?.nome || 'N/A'}</p>
+              ${(clb?.cadastro_clube || func?.cadastro_clube) ? `<p><strong>Cadastro Clube:</strong> ${clb?.cadastro_clube || func?.cadastro_clube}</p>` : ''}
               <p><strong>Data:</strong> ${dataFormatada} às ${horaFormatada}</p>
             </div>
             <table>
@@ -367,13 +367,25 @@ export default function ManagerDashboard() {
       }
     }
 
-    // Normalizar clubes
+    // Normalizar clubes - verificar múltiplas formas de acesso
     let clube = null;
     if (funcionario) {
+      // Tentar array primeiro
       if (Array.isArray(funcionario.clubes)) {
         clube = funcionario.clubes.length > 0 ? funcionario.clubes[0] : null;
-      } else if (funcionario.clubes && typeof funcionario.clubes === 'object') {
+      } 
+      // Tentar objeto direto
+      else if (funcionario.clubes && typeof funcionario.clubes === 'object' && funcionario.clubes.id) {
         clube = funcionario.clubes;
+      }
+      // Se não encontrou clube pela relação, mas tem cadastro_clube, criar objeto mínimo
+      else if (funcionario.cadastro_clube && !clube) {
+        // Se tem cadastro_clube mas não tem relação, pode ser que o clube não esteja relacionado
+        // Mas ainda assim temos o cadastro_clube para exibir
+        clube = {
+          nome: funcionario.clubes?.nome || null,
+          cadastro_clube: funcionario.cadastro_clube
+        };
       }
     }
 
@@ -605,11 +617,11 @@ export default function ManagerDashboard() {
                           </p>
                         )}
                         <p className="text-sm text-gray-600">
-                          <strong>Clube:</strong> {clube?.nome || 'N/A'}
+                          <strong>Clube:</strong> {clube?.nome || funcionario?.clubes?.nome || 'N/A'}
                         </p>
-                        {(funcionario?.cadastro_clube || clube?.cadastro_clube) && (
+                        {(clube?.cadastro_clube || funcionario?.cadastro_clube) && (
                           <p className="text-sm text-gray-600">
-                            <strong>Cadastro Clube:</strong> {funcionario?.cadastro_clube || clube?.cadastro_clube}
+                            <strong>Cadastro Clube:</strong> {clube?.cadastro_clube || funcionario?.cadastro_clube}
                           </p>
                         )}
                         <p className="text-sm text-gray-600">

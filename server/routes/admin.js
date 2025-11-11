@@ -1505,6 +1505,13 @@ router.get('/pedidos', async (req, res) => {
       console.log('DEBUG PEDIDOS - Primeiro pedido ID:', data[0].id);
       console.log('DEBUG PEDIDOS - Funcionarios do primeiro pedido:', JSON.stringify(data[0].funcionarios, null, 2));
       console.log('DEBUG PEDIDOS - Tipo de funcionarios:', Array.isArray(data[0].funcionarios) ? 'array' : typeof data[0].funcionarios);
+      // Debug específico para clubes
+      const primeiroFunc = Array.isArray(data[0].funcionarios) ? data[0].funcionarios[0] : data[0].funcionarios;
+      if (primeiroFunc) {
+        console.log('DEBUG PEDIDOS - Clubes do primeiro funcionário:', JSON.stringify(primeiroFunc.clubes, null, 2));
+        console.log('DEBUG PEDIDOS - cadastro_clube do funcionário:', primeiroFunc.cadastro_clube);
+        console.log('DEBUG PEDIDOS - clube_id do funcionário:', primeiroFunc.clube_id);
+      }
     } else {
       console.log('DEBUG PEDIDOS - Nenhum pedido retornado');
     }
@@ -1532,6 +1539,38 @@ router.get('/pedidos', async (req, res) => {
         const funcionario = Array.isArray(p.funcionarios) ? p.funcionarios[0] : p.funcionarios;
         return funcionario?.nome_completo?.toLowerCase().includes(funcionario_nome.toLowerCase());
       });
+    }
+
+    // Buscar clubes pelos cadastro_clube quando a relação não retornou o clube
+    // Isso acontece quando funcionário tem cadastro_clube mas não tem clube_id preenchido
+    for (const pedido of pedidos) {
+      const funcionario = Array.isArray(pedido.funcionarios) ? pedido.funcionarios[0] : pedido.funcionarios;
+      if (funcionario && funcionario.cadastro_clube) {
+        // Se não tem clube pela relação, buscar pelo cadastro_clube
+        if (!funcionario.clubes || (Array.isArray(funcionario.clubes) && funcionario.clubes.length === 0)) {
+          try {
+            const { data: clubeData, error: clubeError } = await supabase
+              .from('clubes')
+              .select('id, nome, cadastro_clube')
+              .eq('cadastro_clube', funcionario.cadastro_clube)
+              .eq('empresa_id', funcionario.empresa_id)
+              .limit(1)
+              .maybeSingle();
+            
+            if (!clubeError && clubeData) {
+              // Adicionar o clube encontrado ao funcionário
+              if (Array.isArray(funcionario.clubes)) {
+                funcionario.clubes = [clubeData];
+              } else {
+                funcionario.clubes = clubeData;
+              }
+              console.log(`DEBUG PEDIDOS - Clube encontrado para cadastro_clube ${funcionario.cadastro_clube}:`, clubeData.nome);
+            }
+          } catch (error) {
+            console.error('Erro ao buscar clube por cadastro_clube:', error);
+          }
+        }
+      }
     }
 
     // Debug: verificar se SKU está sendo retornado
