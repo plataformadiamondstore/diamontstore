@@ -374,19 +374,16 @@ export default function ManagerDashboard() {
       if (Array.isArray(funcionario.clubes)) {
         clube = funcionario.clubes.length > 0 ? funcionario.clubes[0] : null;
       } 
-      // Tentar objeto direto
-      else if (funcionario.clubes && typeof funcionario.clubes === 'object' && funcionario.clubes.id) {
-        clube = funcionario.clubes;
+      // Tentar objeto direto - verificar se tem id OU se tem nome (backend pode ter buscado)
+      else if (funcionario.clubes && typeof funcionario.clubes === 'object') {
+        // Se tem id, é válido. Se não tem id mas tem nome, também é válido (backend buscou)
+        if (funcionario.clubes.id || funcionario.clubes.nome) {
+          clube = funcionario.clubes;
+        }
       }
-      // Se não encontrou clube pela relação, mas tem cadastro_clube, criar objeto mínimo
-      else if (funcionario.cadastro_clube && !clube) {
-        // Se tem cadastro_clube mas não tem relação, pode ser que o clube não esteja relacionado
-        // Mas ainda assim temos o cadastro_clube para exibir
-        clube = {
-          nome: funcionario.clubes?.nome || null,
-          cadastro_clube: funcionario.cadastro_clube
-        };
-      }
+      // Se ainda não encontrou e tem cadastro_clube, o backend deveria ter buscado
+      // Se chegou aqui sem clube, significa que o backend não encontrou ou não buscou
+      // Não criar objeto vazio - deixar null para não mostrar nome errado
     }
 
     return {
@@ -617,7 +614,12 @@ export default function ManagerDashboard() {
                           </p>
                         )}
                         <p className="text-sm text-gray-600">
-                          <strong>Clube:</strong> {clube?.nome || funcionario?.clubes?.nome || 'N/A'}
+                          <strong>Clube:</strong> {
+                            (clube?.nome) || 
+                            (funcionario?.clubes?.nome) || 
+                            (Array.isArray(funcionario?.clubes) && funcionario?.clubes[0]?.nome) ||
+                            'N/A'
+                          }
                         </p>
                         {(clube?.cadastro_clube || funcionario?.cadastro_clube) && (
                           <p className="text-sm text-gray-600">

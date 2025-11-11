@@ -135,14 +135,18 @@ export default function AdminDashboard() {
         // Carregar todos os dados necessários para o dashboard
         try {
           const [empresasRes, gestoresRes, pedidosRes, uploadsRes] = await Promise.all([
-            api.get('/admin/empresas').catch(() => ({ data: [] })),
-            api.get('/admin/gestores').catch(() => ({ data: [] })),
-            api.get('/admin/pedidos').catch(() => ({ data: [] })),
-            api.get('/admin/funcionarios/uploads').catch(() => ({ data: [] }))
+            api.get('/admin/empresas').catch((err) => { console.error('Erro ao carregar empresas:', err); return { data: [] }; }),
+            api.get('/admin/gestores').catch((err) => { console.error('Erro ao carregar gestores:', err); return { data: [] }; }),
+            api.get('/admin/pedidos', { params: {} }).catch((err) => { console.error('Erro ao carregar pedidos:', err); return { data: [] }; }),
+            api.get('/admin/funcionarios/uploads').catch((err) => { console.error('Erro ao carregar uploads:', err); return { data: [] }; })
           ]);
+          console.log('Dashboard - Empresas carregadas:', empresasRes?.data?.length || 0);
+          console.log('Dashboard - Gestores carregados:', gestoresRes?.data?.length || 0);
+          console.log('Dashboard - Pedidos carregados:', pedidosRes?.data?.length || 0);
+          console.log('Dashboard - Uploads carregados:', uploadsRes?.data?.uploads?.length || uploadsRes?.data?.length || 0);
           setEmpresas(empresasRes?.data || []);
           setGestores(gestoresRes?.data || []);
-          setPedidos(pedidosRes?.data || []);
+          setPedidos(Array.isArray(pedidosRes?.data) ? pedidosRes?.data : []);
           // A API retorna { success: true, uploads: [...] } ou apenas o array
           const uploadsData = uploadsRes?.data?.uploads || uploadsRes?.data || [];
           setHistoricoUploads(Array.isArray(uploadsData) ? uploadsData : []);
@@ -1420,18 +1424,23 @@ export default function AdminDashboard() {
                       <p className="text-3xl font-bold text-gray-900">
                         R$ {(() => {
                           if (pedidosFiltrados.length === 0) return '0,00';
-                          const vendasTotais = pedidosFiltrados
-                            .filter(p => p.status === 'aprovado')
-                            .reduce((sum, pedido) => {
-                              const totalPedido = pedido.pedido_itens?.reduce((s, item) => 
-                                s + (parseFloat(item.preco || 0) * (item.quantidade || 0)), 0) || 0;
-                              return sum + totalPedido;
-                            }, 0);
-                          return vendasTotais.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+                          const vendasTotais = pedidosFiltrados.reduce((sum, pedido) => {
+                            // Calcular apenas itens aprovados (Produto autorizado ou aprovado)
+                            const totalPedido = pedido.pedido_itens?.reduce((s, item) => {
+                              if (item.status === 'Produto autorizado' || item.status === 'aprovado') {
+                                return s + (parseFloat(item.preco || 0) * (item.quantidade || 0));
+                              }
+                              return s;
+                            }, 0) || 0;
+                            return sum + totalPedido;
+                          }, 0);
+                          return vendasTotais.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, '.').replace('.', ',');
                         })()}
                       </p>
                       <p className="text-xs text-gray-500 mt-2">
-                        {pedidosFiltrados.filter(p => p.status === 'aprovado').length} pedidos aprovados
+                        {pedidosFiltrados.filter(p => 
+                          p.pedido_itens?.some(item => item.status === 'Produto autorizado' || item.status === 'aprovado')
+                        ).length} pedidos com itens aprovados
                       </p>
                     </div>
 
@@ -1441,13 +1450,19 @@ export default function AdminDashboard() {
                       <p className="text-3xl font-bold text-gray-900">{pedidosFiltrados.length}</p>
                       <div className="flex gap-4 mt-2 text-xs">
                         <span className="text-green-600">
-                          {pedidosFiltrados.filter(p => p.status === 'aprovado').length} Aprovados
+                          {pedidosFiltrados.filter(p => 
+                            p.pedido_itens?.some(item => item.status === 'Produto autorizado' || item.status === 'aprovado')
+                          ).length} Aprovados
                         </span>
                         <span className="text-yellow-600">
-                          {pedidosFiltrados.filter(p => p.status === 'pendente').length} Pendentes
+                          {pedidosFiltrados.filter(p => 
+                            p.pedido_itens?.some(item => !item.status || item.status === 'pendente')
+                          ).length} Pendentes
                         </span>
                         <span className="text-red-600">
-                          {pedidosFiltrados.filter(p => p.status === 'rejeitado').length} Rejeitados
+                          {pedidosFiltrados.filter(p => 
+                            p.pedido_itens?.some(item => item.status === 'rejeitado')
+                          ).length} Rejeitados
                         </span>
                       </div>
                     </div>
@@ -1635,51 +1650,55 @@ export default function AdminDashboard() {
 
                         pedidosParaTabela.forEach(pedido => {
                           try {
-                            if (pedido && pedido.status === 'aprovado') {
+                            // Verificar se o pedido tem itens aprovados (status por item, não por pedido)
+                            const temItensAprovados = pedido.pedido_itens?.some(item => 
+                              item.status === 'Produto autorizado' || item.status === 'aprovado'
+                            );
+                            
+                            if (pedido && temItensAprovados) {
                               // Tentar múltiplas formas de obter o empresa_id
                               let empresaId = pedido.funcionarios?.empresas?.id 
                                 || pedido.funcionarios?.empresa_id
                                 || pedido.empresa_id;
                               
-                              // Se não encontrou por id, tentar por cadastro_empresa
-                              if (!empresaId && pedido.funcionarios?.cadastro_empresa) {
-                                empresaId = empresaPorCadastro[pedido.funcionarios.cadastro_empresa];
-                                console.log(`Encontrou empresa por cadastro_empresa ${pedido.funcionarios.cadastro_empresa}: ${empresaId}`);
+                              // Normalizar funcionarios (pode vir como array ou objeto)
+                              const funcionario = Array.isArray(pedido.funcionarios) ? pedido.funcionarios[0] : pedido.funcionarios;
+                              if (funcionario) {
+                                // Tentar obter empresa_id do funcionário normalizado
+                                if (!empresaId) {
+                                  const empresa = Array.isArray(funcionario.empresas) ? funcionario.empresas[0] : funcionario.empresas;
+                                  empresaId = empresa?.id || funcionario.empresa_id;
+                                }
+                                
+                                // Se não encontrou por id, tentar por cadastro_empresa
+                                if (!empresaId && funcionario.cadastro_empresa) {
+                                  empresaId = empresaPorCadastro[funcionario.cadastro_empresa];
+                                }
                               }
                               
-                              console.log('Processando pedido:', {
-                                pedidoId: pedido.id,
-                                empresaId: empresaId,
-                                cadastroEmpresa: pedido.funcionarios?.cadastro_empresa,
-                                funcionario: pedido.funcionarios?.nome_completo,
-                                estruturaFuncionario: pedido.funcionarios
-                              });
-                              
                               if (empresaId && vendasPorEmpresa[empresaId]) {
+                                // Calcular apenas itens aprovados (Produto autorizado ou aprovado)
                                 const totalPedido = (pedido.pedido_itens || []).reduce((sum, item) => {
                                   if (!item) return sum;
-                                  try {
-                                    const preco = parseFloat(item.preco || 0);
-                                    const quantidade = parseInt(item.quantidade || 0);
-                                    return sum + (preco * quantidade);
-                                  } catch (e) {
-                                    console.error('Erro ao calcular item:', e, item);
-                                    return sum;
+                                  // Só somar se o item estiver aprovado
+                                  if (item.status === 'Produto autorizado' || item.status === 'aprovado') {
+                                    try {
+                                      const preco = parseFloat(item.preco || 0);
+                                      const quantidade = parseInt(item.quantidade || 0);
+                                      return sum + (preco * quantidade);
+                                    } catch (e) {
+                                      console.error('Erro ao calcular item:', e, item);
+                                      return sum;
+                                    }
                                   }
+                                  return sum;
                                 }, 0);
                                 
-                                console.log(`Adicionando venda para empresa ${empresaId}: R$ ${totalPedido}`);
-                                
-                                vendasPorEmpresa[empresaId].vendas += totalPedido;
-                                vendasPorEmpresa[empresaId].pedidos += 1;
-                                // Não precisa adicionar funcionários aqui, já temos do upload
-                              } else if (pedido.status === 'aprovado') {
-                                console.warn('Pedido aprovado sem empresa associada:', {
-                                  pedidoId: pedido.id,
-                                  empresaId: empresaId,
-                                  empresasDisponiveis: Object.keys(vendasPorEmpresa),
-                                  funcionario: pedido.funcionarios
-                                });
+                                // Só adicionar se tiver valor de itens aprovados
+                                if (totalPedido > 0) {
+                                  vendasPorEmpresa[empresaId].vendas += totalPedido;
+                                  vendasPorEmpresa[empresaId].pedidos += 1;
+                                }
                               }
                             }
                           } catch (e) {
@@ -1713,12 +1732,14 @@ export default function AdminDashboard() {
                         console.log('Funcionários por empresa:', funcionariosPorEmpresa);
 
                         if (empresasOrdenadas.length === 0) {
-                          // Verificar se há pedidos aprovados mas não estão sendo associados às empresas
-                          const pedidosAprovados = pedidosParaTabela.filter(p => p && p.status === 'aprovado');
-                          console.log('Pedidos aprovados encontrados:', pedidosAprovados.length);
-                          if (pedidosAprovados.length > 0) {
-                            console.log('Primeiro pedido aprovado:', pedidosAprovados[0]);
-                            console.log('Estrutura do funcionário:', pedidosAprovados[0]?.funcionarios);
+                          // Verificar se há pedidos com itens aprovados mas não estão sendo associados às empresas
+                          const pedidosComItensAprovados = pedidosParaTabela.filter(p => 
+                            p && p.pedido_itens?.some(item => item.status === 'Produto autorizado' || item.status === 'aprovado')
+                          );
+                          console.log('Pedidos com itens aprovados encontrados:', pedidosComItensAprovados.length);
+                          if (pedidosComItensAprovados.length > 0) {
+                            console.log('Primeiro pedido com itens aprovados:', pedidosComItensAprovados[0]);
+                            console.log('Estrutura do funcionário:', pedidosComItensAprovados[0]?.funcionarios);
                           }
                           
                           return (

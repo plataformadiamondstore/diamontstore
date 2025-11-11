@@ -1505,13 +1505,6 @@ router.get('/pedidos', async (req, res) => {
       console.log('DEBUG PEDIDOS - Primeiro pedido ID:', data[0].id);
       console.log('DEBUG PEDIDOS - Funcionarios do primeiro pedido:', JSON.stringify(data[0].funcionarios, null, 2));
       console.log('DEBUG PEDIDOS - Tipo de funcionarios:', Array.isArray(data[0].funcionarios) ? 'array' : typeof data[0].funcionarios);
-      // Debug específico para clubes
-      const primeiroFunc = Array.isArray(data[0].funcionarios) ? data[0].funcionarios[0] : data[0].funcionarios;
-      if (primeiroFunc) {
-        console.log('DEBUG PEDIDOS - Clubes do primeiro funcionário:', JSON.stringify(primeiroFunc.clubes, null, 2));
-        console.log('DEBUG PEDIDOS - cadastro_clube do funcionário:', primeiroFunc.cadastro_clube);
-        console.log('DEBUG PEDIDOS - clube_id do funcionário:', primeiroFunc.clube_id);
-      }
     } else {
       console.log('DEBUG PEDIDOS - Nenhum pedido retornado');
     }
@@ -1541,13 +1534,18 @@ router.get('/pedidos', async (req, res) => {
       });
     }
 
-    // Buscar clubes pelos cadastro_clube quando a relação não retornou o clube
-    // Isso acontece quando funcionário tem cadastro_clube mas não tem clube_id preenchido
+    // SEMPRE buscar clubes pelos cadastro_clube para garantir que o nome apareça
+    // A relação do Supabase só funciona se clube_id estiver preenchido, mas temos cadastro_clube
     for (const pedido of pedidos) {
       const funcionario = Array.isArray(pedido.funcionarios) ? pedido.funcionarios[0] : pedido.funcionarios;
       if (funcionario && funcionario.cadastro_clube) {
-        // Se não tem clube pela relação, buscar pelo cadastro_clube
-        if (!funcionario.clubes || (Array.isArray(funcionario.clubes) && funcionario.clubes.length === 0)) {
+        // Verificar se já tem clube pela relação com nome
+        const temClubeComNome = funcionario.clubes && 
+          ((Array.isArray(funcionario.clubes) && funcionario.clubes.length > 0 && funcionario.clubes[0]?.nome) || 
+           (typeof funcionario.clubes === 'object' && funcionario.clubes.nome));
+        
+        // Se não tem clube pela relação OU se tem mas não tem nome, buscar pelo cadastro_clube
+        if (!temClubeComNome) {
           try {
             const { data: clubeData, error: clubeError } = await supabase
               .from('clubes')
@@ -1559,15 +1557,10 @@ router.get('/pedidos', async (req, res) => {
             
             if (!clubeError && clubeData) {
               // Adicionar o clube encontrado ao funcionário
-              if (Array.isArray(funcionario.clubes)) {
-                funcionario.clubes = [clubeData];
-              } else {
-                funcionario.clubes = clubeData;
-              }
-              console.log(`DEBUG PEDIDOS - Clube encontrado para cadastro_clube ${funcionario.cadastro_clube}:`, clubeData.nome);
+              funcionario.clubes = clubeData;
             }
           } catch (error) {
-            console.error('Erro ao buscar clube por cadastro_clube:', error);
+            // Silenciar erro - não quebrar o fluxo
           }
         }
       }
