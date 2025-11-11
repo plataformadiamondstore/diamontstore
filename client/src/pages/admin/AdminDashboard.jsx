@@ -2262,7 +2262,7 @@ export default function AdminDashboard() {
               </div>
             </div>
             
-            {/* Cálculo de paginação: 10 linhas x 3 produtos = 30 produtos por página */}
+            {/* Cálculo de paginação: 10 linhas x 4 produtos = 40 produtos por página */}
             {(() => {
               // Aplicar filtros antes da paginação
               let produtosFiltrados = produtosLista;
@@ -2279,7 +2279,7 @@ export default function AdminDashboard() {
                 );
               }
               
-              const produtosPorPagina = 30; // 10 linhas x 3 produtos
+              const produtosPorPagina = 40; // 10 linhas x 4 produtos
               const totalPaginas = Math.ceil(produtosFiltrados.length / produtosPorPagina);
               const inicio = (paginaProdutos - 1) * produtosPorPagina;
               const fim = inicio + produtosPorPagina;
@@ -2287,7 +2287,7 @@ export default function AdminDashboard() {
               
               return (
                 <>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
                     {produtosPaginaAtual.map((produto) => (
                 <div key={produto.id} className="bg-white rounded-lg shadow-sm p-6 border rounded-lg hover:shadow-md transition-shadow">
                   <div className="mb-4 relative">
