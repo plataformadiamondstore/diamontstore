@@ -49,12 +49,30 @@ router.get('/', async (req, res) => {
 
           const imagensArray = Array.isArray(imagensData) ? imagensData : [];
           
+          // Função helper para corrigir URLs antigas (localhost) para URLs de produção
+          const fixImageUrl = (url) => {
+            if (!url) return url;
+            // Se a URL contém localhost, substituir pela URL correta da API
+            if (url.includes('localhost:3000') || url.includes('localhost')) {
+              const baseUrl = process.env.API_URL || 
+                             (process.env.NODE_ENV === 'production' 
+                               ? 'https://api.slothempresas.com.br' 
+                               : `http://localhost:${process.env.PORT || 3000}`);
+              // Extrair o caminho da URL antiga (ex: /uploads/produtos/filename.jpg)
+              const pathMatch = url.match(/\/uploads\/.*$/);
+              if (pathMatch) {
+                return `${baseUrl}${pathMatch[0]}`;
+              }
+            }
+            return url;
+          };
+          
           return {
             ...produto,
             produto_imagens: imagensArray.map(img => ({
               id: img.id,
               produto_id: img.produto_id,
-              url_imagem: img.url_imagem,
+              url_imagem: fixImageUrl(img.url_imagem), // Corrigir URL se necessário
               ordem: img.ordem || 0,
               created_at: img.created_at
             }))
@@ -163,10 +181,31 @@ router.get('/:id', async (req, res) => {
       console.warn('Erro ao buscar imagens:', imagensError);
     }
 
-    // Combinar produto com imagens
+    // Função helper para corrigir URLs antigas (localhost) para URLs de produção
+    const fixImageUrl = (url) => {
+      if (!url) return url;
+      // Se a URL contém localhost, substituir pela URL correta da API
+      if (url.includes('localhost:3000') || url.includes('localhost')) {
+        const baseUrl = process.env.API_URL || 
+                       (process.env.NODE_ENV === 'production' 
+                         ? 'https://api.slothempresas.com.br' 
+                         : `http://localhost:${process.env.PORT || 3000}`);
+        // Extrair o caminho da URL antiga (ex: /uploads/produtos/filename.jpg)
+        const pathMatch = url.match(/\/uploads\/.*$/);
+        if (pathMatch) {
+          return `${baseUrl}${pathMatch[0]}`;
+        }
+      }
+      return url;
+    };
+    
+    // Combinar produto com imagens e corrigir URLs
     const produtoCompleto = {
       ...produtoData[0],
-      produto_imagens: imagensData || []
+      produto_imagens: (imagensData || []).map(img => ({
+        ...img,
+        url_imagem: fixImageUrl(img.url_imagem) // Corrigir URL se necessário
+      }))
     };
 
     res.json(produtoCompleto);

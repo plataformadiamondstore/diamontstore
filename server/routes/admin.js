@@ -943,10 +943,19 @@ router.post('/produtos', uploadImages.array('imagens', 5), async (req, res) => {
     if (files.length > 0) {
       const imagensData = [];
       
+      // Função helper para construir URL da imagem baseada no ambiente
+      const getImageUrl = (filename) => {
+        const baseUrl = process.env.API_URL || 
+                       (process.env.NODE_ENV === 'production' 
+                         ? 'https://api.slothempresas.com.br' 
+                         : `http://localhost:${process.env.PORT || 3000}`);
+        return `${baseUrl}/uploads/produtos/${filename}`;
+      };
+      
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
-        // Criar URL da imagem (por enquanto local, depois pode migrar para Supabase Storage)
-        const urlImagem = `http://localhost:3000/uploads/produtos/${file.filename}`;
+        // Criar URL da imagem baseada no ambiente (produção ou desenvolvimento)
+        const urlImagem = getImageUrl(file.filename);
         
         imagensData.push({
           produto_id: produto.id,
@@ -1177,11 +1186,21 @@ router.put('/produtos/:id', uploadImages.array('imagens', 5), async (req, res) =
         ? imagensExistentes[0].ordem + 1 
         : 0;
 
+      // Função helper para construir URL da imagem baseada no ambiente
+      const getImageUrl = (filename) => {
+        const baseUrl = process.env.API_URL || 
+                       (process.env.NODE_ENV === 'production' 
+                         ? 'https://api.slothempresas.com.br' 
+                         : `http://localhost:${process.env.PORT || 3000}`);
+        return `${baseUrl}/uploads/produtos/${filename}`;
+      };
+      
       const imagensData = [];
       
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
-        const urlImagem = `http://localhost:3000/uploads/produtos/${file.filename}`;
+        // Criar URL da imagem baseada no ambiente (produção ou desenvolvimento)
+        const urlImagem = getImageUrl(file.filename);
         
         imagensData.push({
           produto_id: req.params.id,
@@ -1411,12 +1430,30 @@ router.get('/produtos', async (req, res) => {
 
           const imagensArray = Array.isArray(imagensData) ? imagensData : [];
           
+          // Função helper para corrigir URLs antigas (localhost) para URLs de produção
+          const fixImageUrl = (url) => {
+            if (!url) return url;
+            // Se a URL contém localhost, substituir pela URL correta da API
+            if (url.includes('localhost:3000') || url.includes('localhost')) {
+              const baseUrl = process.env.API_URL || 
+                             (process.env.NODE_ENV === 'production' 
+                               ? 'https://api.slothempresas.com.br' 
+                               : `http://localhost:${process.env.PORT || 3000}`);
+              // Extrair o caminho da URL antiga (ex: /uploads/produtos/filename.jpg)
+              const pathMatch = url.match(/\/uploads\/.*$/);
+              if (pathMatch) {
+                return `${baseUrl}${pathMatch[0]}`;
+              }
+            }
+            return url;
+          };
+          
           return {
             ...produto,
             produto_imagens: imagensArray.map(img => ({
               id: img.id,
               produto_id: img.produto_id,
-              url_imagem: img.url_imagem,
+              url_imagem: fixImageUrl(img.url_imagem), // Corrigir URL se necessário
               ordem: img.ordem || 0,
               created_at: img.created_at
             }))
