@@ -1,0 +1,2 @@
+Deploy Version: 20251112165220
+Forçar deploy limpo - Removido SQL direto das rotas do YouTube

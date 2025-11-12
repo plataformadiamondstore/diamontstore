@@ -4,7 +4,7 @@ services:
     env: node
     region: oregon
     plan: starter
-    buildCommand: cd server && npm install
+    buildCommand: cd server && npm install && echo "Build completed at $(date)" > build-timestamp.txt
     startCommand: cd server && npm start
     envVars:
       - key: NODE_ENV
@@ -17,4 +17,6 @@ services:
         sync: false
       - key: JWT_SECRET
         sync: false
+      - key: FORCE_DEPLOY
+        value: "2025-11-12-v2"
 
