@@ -22,7 +22,7 @@ export default function Login() {
       const widthCheck = window.innerWidth < 768;
       
       // Verificar User-Agent para dispositivos móveis
-      const userAgent = navigator.userAgent || navigator.vendor || (window as any).opera;
+      const userAgent = navigator.userAgent || navigator.vendor || '';
       const isMobileUA = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(userAgent.toLowerCase());
       
       // Verificar se é touch device
