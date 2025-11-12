@@ -101,7 +101,7 @@ app.get('/api/marketing/youtube', async (req, res) => {
     }
     
     console.log('   DATABASE_URL configurada?', !!process.env.DATABASE_URL);
-    console.log('   SUPABASE_URL:', supabaseUrl || '(não configurada)');
+    console.log('   SUPABASE_URL:', process.env.SUPABASE_URL || '(não configurada)');
     console.log('   Connection string:', connectionString.replace(/:[^:@]+@/, ':****@'));
     
     const client = new Client({
