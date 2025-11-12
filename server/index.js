@@ -90,20 +90,12 @@ app.get('/api/marketing/youtube', async (req, res) => {
     const pg = await import('pg');
     const { Client } = pg.default;
     
-    // Construir connection string do Supabase a partir das variáveis de ambiente
-    const supabaseUrl = process.env.SUPABASE_URL;
+    // Construir connection string do Supabase
+    // Prioridade: DATABASE_URL > Connection string direta do Supabase
     let connectionString = process.env.DATABASE_URL;
     
-    // Se não tiver DATABASE_URL, construir a partir do SUPABASE_URL
-    if (!connectionString && supabaseUrl) {
-      // Extrair informações do SUPABASE_URL
-      // Formato: https://[project-ref].supabase.co
-      const projectRef = supabaseUrl.replace('https://', '').replace('.supabase.co', '');
-      const dbPassword = process.env.SUPABASE_DB_PASSWORD || 'Beniciocaus3131'; // Fallback se não tiver variável específica
-      connectionString = `postgresql://postgres.${projectRef}:${dbPassword}@aws-0-us-west-1.pooler.supabase.com:6543/postgres`;
-    }
-    
-    // Fallback final se nada funcionar
+    // Se não tiver DATABASE_URL, usar connection string direta do Supabase
+    // Formato: postgresql://postgres:[PASSWORD]@db.[PROJECT-REF].supabase.co:5432/postgres
     if (!connectionString) {
       connectionString = 'postgresql://postgres:Beniciocaus3131@db.rslnzomohtvwvhymenjh.supabase.co:5432/postgres';
     }
