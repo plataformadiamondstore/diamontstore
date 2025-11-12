@@ -77,9 +77,25 @@ export default function Products() {
       
       // Verificar se a resposta tem a estrutura esperada
       if (response.data && response.data.produtos) {
-        setProducts(response.data.produtos || []);
+        const produtos = response.data.produtos || [];
+        console.log('Produtos carregados:', produtos.length);
+        
+        // Log detalhado das imagens dos produtos
+        produtos.forEach((produto, index) => {
+          if (index < 3) { // Log apenas os 3 primeiros para não poluir
+            console.log(`📦 Produto ${index + 1} (ID: ${produto.id}):`, {
+              nome: produto.nome,
+              totalImagens: produto.produto_imagens?.length || 0,
+              imagens: produto.produto_imagens?.map(img => ({
+                url: img.url_imagem,
+                ordem: img.ordem
+              })) || []
+            });
+          }
+        });
+        
+        setProducts(produtos);
         setTotalPages(response.data.paginacao?.totalPages || 1);
-        console.log('Produtos carregados:', response.data.produtos.length);
       } else {
         console.warn('Resposta da API não tem estrutura esperada:', response.data);
         setProducts([]);

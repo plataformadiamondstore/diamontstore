@@ -105,19 +105,33 @@ export default function Login() {
     const loadYoutubeLink = async () => {
       try {
         console.log('🔍 Buscando link do YouTube...');
+        console.log('   API Base URL:', api.defaults.baseURL);
         const response = await api.get('/marketing/youtube?' + Date.now());
-        console.log('📺 Resposta da API YouTube:', response.data);
+        console.log('📺 Resposta completa da API YouTube:', response);
+        console.log('📺 Resposta data:', response.data);
         const link = response.data?.youtube_link || '';
-        console.log('📺 Link recebido:', link);
+        console.log('📺 Link recebido (tipo:', typeof link, '):', link);
+        console.log('📺 Link tem conteúdo?', !!link);
         setYoutubeLink(link);
         
         // Converter imediatamente para embed URL
         const embedUrl = getYoutubeEmbedUrl(link);
+        console.log('📺 Embed URL gerada:', embedUrl);
         setYoutubeEmbedUrl(embedUrl);
+        
+        if (!link) {
+          console.warn('⚠️ Link do YouTube está vazio na resposta da API');
+        }
+        if (!embedUrl) {
+          console.warn('⚠️ Não foi possível converter o link para embed URL');
+        }
       } catch (error) {
         console.error('❌ Erro ao carregar link do YouTube:', error);
         console.error('   URL tentada:', error.config?.url);
         console.error('   Base URL:', error.config?.baseURL);
+        console.error('   URL completa:', error.config?.baseURL + error.config?.url);
+        console.error('   Status:', error.response?.status);
+        console.error('   Response data:', error.response?.data);
         setYoutubeLink('');
         setYoutubeEmbedUrl('');
       }

@@ -64,6 +64,28 @@ export default function ProductCard({ product, onAddToCart }) {
               src={images[currentImageIndex]}
               alt={product.nome}
               className="w-full h-full object-cover"
+              onError={(e) => {
+                console.error('❌ Erro ao carregar imagem do produto:', {
+                  produtoId: product.id,
+                  produtoNome: product.nome,
+                  url: images[currentImageIndex],
+                  todasUrls: images
+                });
+                // Tentar próxima imagem se houver
+                if (images.length > currentImageIndex + 1) {
+                  setCurrentImageIndex(currentImageIndex + 1);
+                } else {
+                  // Se não houver mais imagens, mostrar placeholder
+                  e.target.style.display = 'none';
+                  e.target.parentElement.innerHTML = '<div class="w-full h-full flex items-center justify-center text-gray-400 bg-gray-100">Imagem não disponível</div>';
+                }
+              }}
+              onLoad={() => {
+                console.log('✅ Imagem do produto carregada:', {
+                  produtoId: product.id,
+                  url: images[currentImageIndex]
+                });
+              }}
             />
             {images.length > 1 && (
               <>
