@@ -15,12 +15,14 @@ export default function Login() {
   const { user, login, loading: authLoading } = useAuth();
   const navigate = useNavigate();
 
-  // Detectar se é mobile
+  // Detectar se é mobile - INICIALIZAR CORRETAMENTE
   useEffect(() => {
     const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768);
+      const mobile = window.innerWidth < 768;
+      setIsMobile(mobile);
     };
     
+    // Verificar imediatamente ao montar
     checkMobile();
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
@@ -131,7 +133,7 @@ export default function Login() {
     }
   };
 
-  // Determinar qual banner usar
+  // Determinar qual banner usar - DESKTOP USA banner_site.jpeg, MOBILE USA banner_mobile.jpeg
   const bannerSrc = isMobile 
     ? `/banners/banner_mobile.jpeg?t=${Date.now()}`
     : `/banners/banner_site.jpeg?t=${Date.now()}`;
@@ -186,6 +188,7 @@ export default function Login() {
         }}
       >
         <img 
+          key={`banner-${isMobile ? 'mobile' : 'desktop'}`}
           src={bannerSrc}
           alt="Banner de Login" 
           className="w-full h-full object-cover"
@@ -201,7 +204,7 @@ export default function Login() {
             e.target.style.display = 'none';
             e.target.parentElement.style.background = 'linear-gradient(to bottom right, #f3f4f6, #e5e7eb)';
           }}
-          onLoad={(e) => console.log('✅ Banner carregado com sucesso:', e.target.src)}
+          onLoad={(e) => console.log('✅ Banner carregado:', isMobile ? 'MOBILE' : 'DESKTOP', e.target.src)}
         />
       </div>
       

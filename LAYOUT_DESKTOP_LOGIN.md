@@ -15,15 +15,18 @@ Este documento descreve todas as configurações de layout específicas para a v
 - **Estado**: `isMobile` (boolean)
 - **Breakpoint**: `window.innerWidth >= 768px` (desktop)
 - **Atualização**: Listener de evento `resize` para atualização dinâmica
+- **Inicialização**: Verificação imediata ao montar o componente
 
 ```javascript
 const [isMobile, setIsMobile] = useState(false);
 
 useEffect(() => {
   const checkMobile = () => {
-    setIsMobile(window.innerWidth < 768);
+    const mobile = window.innerWidth < 768;
+    setIsMobile(mobile);
   };
   
+  // Verificar imediatamente ao montar
   checkMobile();
   window.addEventListener('resize', checkMobile);
   return () => window.removeEventListener('resize', checkMobile);
@@ -62,7 +65,32 @@ useEffect(() => {
     pointerEvents: 'none'
   }}
 >
+  <img 
+    key={`banner-${isMobile ? 'mobile' : 'desktop'}`}
+    src={bannerSrc}
+    alt="Banner de Login" 
+    className="w-full h-full object-cover"
+    style={{
+      width: '100%',
+      height: '100%',
+      objectFit: 'cover',
+      objectPosition: 'center'
+    }}
+    onError={(e) => {
+      console.error('❌ Erro ao carregar banner:', e.target.src);
+      e.target.style.display = 'none';
+      e.target.parentElement.style.background = 'linear-gradient(to bottom right, #f3f4f6, #e5e7eb)';
+    }}
+    onLoad={(e) => console.log('✅ Banner carregado:', isMobile ? 'MOBILE' : 'DESKTOP', e.target.src)}
+  />
+</div>
 ```
+
+**⚠️ IMPORTANTE**: 
+- A imagem usa `key` para forçar reload quando muda entre mobile/desktop
+- Desktop SEMPRE usa `/banners/banner_site.jpeg`
+- Mobile SEMPRE usa `/banners/banner_mobile.jpeg`
+- Desktop NUNCA deve usar a imagem do mobile
 
 **⚠️ IMPORTANTE**: O tamanho do banner NUNCA deve ser alterado. Sempre manter `100vw x 100vh`.
 
@@ -307,6 +335,13 @@ style={{
 - Alinhamento vertical perfeito entre os cards
 - Botão roxo sem opacidade para melhor visibilidade
 - Container com padding lateral de 10%
+
+### 28/01/2025
+- Correção da detecção de desktop com inicialização imediata
+- Adicionado `key` na imagem do banner para forçar reload correto
+- Garantido que desktop sempre usa `banner_site.jpeg` (não usa imagem do mobile)
+- Melhorado log de carregamento do banner
+- Correção crítica: Desktop agora usa corretamente sua própria imagem de banner
 
 ---
 

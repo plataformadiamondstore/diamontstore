@@ -211,9 +211,10 @@ export default function AdminDashboard() {
           console.error('Erro ao carregar link do YouTube:', error);
           setYoutubeLink('');
         }
-        // Carregar previews dos banners
-        setBannerMobilePreview('/banners/banner_mobile.jpeg?' + Date.now());
-        setBannerDesktopPreview('/banners/banner_site.jpeg?' + Date.now());
+        // Carregar previews dos banners com timestamp para evitar cache
+        const timestamp = Date.now();
+        setBannerMobilePreview(`/banners/banner_mobile.jpeg?t=${timestamp}`);
+        setBannerDesktopPreview(`/banners/banner_site.jpeg?t=${timestamp}`);
       } else if (activeTab === 'cadastros') {
         // Carregar produtos (incluindo desabilitados), categorias, marcas e tamanhos
         const [prodRes, catRes, marRes, tamRes] = await Promise.all([
@@ -3544,6 +3545,7 @@ export default function AdminDashboard() {
                         {/* Simulação de tela de celular - proporção 9:16 */}
                         <div className="relative w-full h-full bg-white rounded-[2rem] overflow-hidden border-4 border-gray-900 flex items-start justify-center">
                           <img
+                            key={bannerMobilePreview}
                             src={bannerMobilePreview}
                             alt="Banner Mobile Atual"
                             className="w-full h-auto"
@@ -3551,6 +3553,7 @@ export default function AdminDashboard() {
                             onError={(e) => {
                               e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="200" height="400"%3E%3Crect width="200" height="400" fill="%23e5e7eb"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" dy=".3em" fill="%239ca3af" font-size="12"%3ENenhum banner%3C/text%3E%3C/svg%3E';
                             }}
+                            onLoad={() => console.log('✅ Banner mobile carregado:', bannerMobilePreview)}
                           />
                         </div>
                       </div>
@@ -3606,9 +3609,23 @@ export default function AdminDashboard() {
                           }
                         });
 
+                        console.log('✅ Resposta do upload:', response.data);
+                        
+                        // Aguardar um pouco para garantir que o arquivo foi salvo no servidor
+                        await new Promise(resolve => setTimeout(resolve, 1000));
+                        
                         alert('Banner mobile atualizado com sucesso!');
-                        // Recarregar preview
-                        setBannerMobilePreview('/banners/banner_mobile.jpeg?' + Date.now());
+                        
+                        // Atualizar preview com timestamp único para forçar carregamento da nova imagem
+                        const timestamp = Date.now();
+                        // Primeiro limpar o preview para forçar reload
+                        setBannerMobilePreview('');
+                        
+                        // Depois atualizar com o novo timestamp
+                        setTimeout(() => {
+                          setBannerMobilePreview(`/banners/banner_mobile.jpeg?t=${timestamp}`);
+                        }, 100);
+                        
                         setBannerMobile(null);
                         // Resetar input específico do banner mobile
                         const mobileInput = e.target.closest('.bg-white').querySelector('input[type="file"]');
@@ -3710,9 +3727,23 @@ export default function AdminDashboard() {
                           }
                         });
 
+                        console.log('✅ Resposta do upload:', response.data);
+                        
+                        // Aguardar um pouco para garantir que o arquivo foi salvo no servidor
+                        await new Promise(resolve => setTimeout(resolve, 1000));
+                        
                         alert('Banner desktop atualizado com sucesso!');
-                        // Recarregar preview
-                        setBannerDesktopPreview('/banners/banner_site.jpeg?' + Date.now());
+                        
+                        // Atualizar preview com timestamp único para forçar carregamento da nova imagem
+                        const timestamp = Date.now();
+                        // Primeiro limpar o preview para forçar reload
+                        setBannerDesktopPreview('');
+                        
+                        // Depois atualizar com o novo timestamp
+                        setTimeout(() => {
+                          setBannerDesktopPreview(`/banners/banner_site.jpeg?t=${timestamp}`);
+                        }, 100);
+                        
                         setBannerDesktop(null);
                         // Resetar input específico do banner desktop
                         const desktopInput = e.target.closest('.bg-white').querySelector('input[type="file"]');

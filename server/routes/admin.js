@@ -48,6 +48,7 @@ const uploadBanner = multer({
       const { tipo } = req.body;
       // Nomear o arquivo baseado no tipo (mobile ou desktop)
       const filename = tipo === 'mobile' ? 'banner_mobile.jpeg' : 'banner_site.jpeg';
+      console.log('📝 Nomeando arquivo:', { tipo, filename });
       cb(null, filename);
     }
   }),
@@ -2320,6 +2321,17 @@ router.get('/cadastros/skus', async (req, res) => {
 // Upload de banner (mobile ou desktop)
 router.post('/marketing/banner', uploadBanner.single('banner'), async (req, res) => {
   try {
+    console.log('🔍 Upload recebido:', {
+      hasFile: !!req.file,
+      body: req.body,
+      fileInfo: req.file ? {
+        filename: req.file.filename,
+        path: req.file.path,
+        size: req.file.size,
+        mimetype: req.file.mimetype
+      } : null
+    });
+
     if (!req.file) {
       return res.status(400).json({ error: 'Nenhum arquivo enviado' });
     }
@@ -2330,14 +2342,75 @@ router.post('/marketing/banner', uploadBanner.single('banner'), async (req, res)
       return res.status(400).json({ error: 'Tipo de banner inválido. Use "mobile" ou "desktop"' });
     }
 
+    // Verificar se o arquivo foi salvo corretamente
+    const filePath = req.file.path;
+    const bannersPath = path.join(__dirname, '../../client/public/banners/');
+    const expectedFilename = tipo === 'mobile' ? 'banner_mobile.jpeg' : 'banner_site.jpeg';
+    const expectedPath = path.join(bannersPath, expectedFilename);
+    
+    console.log('🔍 Verificando arquivo:', {
+      filePath: req.file.path,
+      expectedPath,
+      filename: req.file.filename,
+      tipo
+    });
+    
+    // Aguardar um pouco para garantir que o arquivo foi escrito
+    await new Promise(resolve => setTimeout(resolve, 200));
+    
+    // Verificar tanto no caminho do multer quanto no caminho esperado
+    const pathsToCheck = [filePath, expectedPath];
+    let fileFound = false;
+    let actualPath = null;
+    
+    for (const checkPath of pathsToCheck) {
+      if (fs.existsSync(checkPath)) {
+        const stats = fs.statSync(checkPath);
+        console.log('✅ Arquivo encontrado em:', {
+          path: checkPath,
+          size: stats.size,
+          modified: stats.mtime
+        });
+        
+        if (stats.size > 0) {
+          fileFound = true;
+          actualPath = checkPath;
+          break;
+        }
+      }
+    }
+    
+    if (!fileFound) {
+      console.error('❌ Arquivo não encontrado após upload em nenhum dos caminhos:', pathsToCheck);
+      return res.status(500).json({ error: 'Arquivo não foi salvo corretamente' });
+    }
+    
+    // Se o arquivo foi salvo em um caminho diferente do esperado, mover para o lugar correto
+    if (actualPath !== expectedPath && fs.existsSync(actualPath)) {
+      try {
+        // Garantir que o diretório de destino existe
+        if (!fs.existsSync(bannersPath)) {
+          fs.mkdirSync(bannersPath, { recursive: true });
+        }
+        // Copiar o arquivo para o local correto
+        fs.copyFileSync(actualPath, expectedPath);
+        console.log('📋 Arquivo copiado para:', expectedPath);
+      } catch (err) {
+        console.error('⚠️ Erro ao copiar arquivo:', err);
+      }
+    }
+
     res.json({ 
       success: true, 
       message: `Banner ${tipo} atualizado com sucesso`,
       filename: req.file.filename,
-      path: `/banners/${req.file.filename}`
+      path: `/banners/${req.file.filename}`,
+      timestamp: Date.now(),
+      fileSize: req.file.size
     });
   } catch (error) {
-    console.error('Erro ao fazer upload do banner:', error);
+    console.error('❌ Erro ao fazer upload do banner:', error);
+    console.error('Stack:', error.stack);
     res.status(500).json({ error: error.message });
   }
 });
