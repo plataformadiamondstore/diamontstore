@@ -4,8 +4,12 @@ services:
     env: node
     region: oregon
     plan: starter
+    repo: https://github.com/slothempresas/slothempresas.git
+    branch: main
+    autoDeploy: true
     buildCommand: cd server && npm install && echo "Build completed at $(date)" > build-timestamp.txt
     startCommand: cd server && npm start
+    healthCheckPath: /api/health
     envVars:
       - key: NODE_ENV
         value: production
