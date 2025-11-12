@@ -21,6 +21,7 @@ export default function Products() {
   const [categorias, setCategorias] = useState([]);
   const [marcas, setMarcas] = useState([]);
   const [cartItemCount, setCartItemCount] = useState(0);
+  const [showCartPopup, setShowCartPopup] = useState(false);
 
   useEffect(() => {
     if (!user) {
@@ -109,9 +110,14 @@ export default function Products() {
         quantidade: 1,
         variacao
       });
-      alert('Produto adicionado ao carrinho!');
       // Atualizar contador do carrinho
       loadCartCount();
+      // Mostrar popup
+      setShowCartPopup(true);
+      // Esconder popup após 5 segundos
+      setTimeout(() => {
+        setShowCartPopup(false);
+      }, 5000);
     } catch (error) {
       alert('Erro ao adicionar ao carrinho');
       console.error(error);
@@ -131,17 +137,59 @@ export default function Products() {
             </button>
             <div className="flex items-center gap-4">
               <span className="text-gray-700 text-lg font-bold">Olá, {user.nome}</span>
-              <button
-                onClick={() => navigate('/carrinho')}
-                className="relative bg-primary-purple text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors"
-              >
-                Carrinho
-                {cartItemCount > 0 && (
-                  <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center">
-                    {cartItemCount > 99 ? '99+' : cartItemCount}
-                  </span>
+              <div className="relative">
+                <button
+                  onClick={() => {
+                    navigate('/carrinho');
+                    setShowCartPopup(false);
+                  }}
+                  className="relative bg-primary-purple text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors"
+                >
+                  Carrinho
+                  {cartItemCount > 0 && (
+                    <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center">
+                      {cartItemCount > 99 ? '99+' : cartItemCount}
+                    </span>
+                  )}
+                </button>
+                
+                {/* Popup abaixo do carrinho */}
+                {showCartPopup && (
+                  <div className="absolute top-full right-0 mt-2 z-50 animate-fade-in">
+                    <div className="bg-gradient-to-r from-primary-purple to-purple-600 text-white rounded-lg shadow-2xl p-4 min-w-[280px] transform transition-all duration-300 hover:scale-105">
+                      <div className="flex items-center gap-3">
+                        <div className="flex-shrink-0">
+                          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        </div>
+                        <div className="flex-1">
+                          <p className="font-semibold text-sm mb-1">Produto adicionado!</p>
+                          <button
+                            onClick={() => {
+                              navigate('/carrinho');
+                              setShowCartPopup(false);
+                            }}
+                            className="text-white text-sm underline hover:no-underline font-medium w-full text-left"
+                          >
+                            Clique aqui para finalizar seu pedido
+                          </button>
+                        </div>
+                        <button
+                          onClick={() => setShowCartPopup(false)}
+                          className="flex-shrink-0 text-white hover:text-gray-200 transition-colors"
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                    {/* Seta apontando para o botão */}
+                    <div className="absolute -top-2 right-6 w-4 h-4 bg-primary-purple transform rotate-45"></div>
+                  </div>
                 )}
-              </button>
+              </div>
               <button
                 onClick={() => navigate('/pedidos')}
                 className="text-gray-700 hover:text-primary-purple transition-colors"
