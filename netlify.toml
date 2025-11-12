@@ -5,7 +5,8 @@
   # Base directory - onde o Netlify vai executar os comandos
   base = "client"
   # Build command - executa dentro de client/ (comando direto sem script)
-  command = "npm cache clean --force && rm -rf node_modules dist .vite && npm install && npm run build"
+  # Adiciona timestamp como versão do build para forçar reload
+  command = "npm cache clean --force && rm -rf node_modules dist .vite && npm install && VITE_BUILD_VERSION=$(date +%s) npm run build"
   # Publish directory - relativo à raiz, então client/dist
   publish = "client/dist"
 
@@ -14,6 +15,8 @@
   CI = "true"
   FORCE_REBUILD = "true"
   NPM_FLAGS = "--no-cache"
+  # Versão do build baseada em timestamp
+  VITE_BUILD_VERSION = "TIMESTAMP"
 
 # Headers para desabilitar cache
 [[headers]]

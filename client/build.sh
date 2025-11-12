@@ -19,7 +19,8 @@ rm -rf .vite
 echo "📥 Reinstalando dependências..."
 npm install --no-cache
 
-echo "🔨 Fazendo build..."
+echo "🔨 Fazendo build com versão única..."
+export VITE_BUILD_VERSION=$(date +%s)
 npm run build
 
 echo "✅ Build concluído!"
