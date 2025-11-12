@@ -49,11 +49,17 @@ router.get('/', async (req, res) => {
 
           const imagensArray = Array.isArray(imagensData) ? imagensData : [];
           
-          // Função helper para SEMPRE garantir URL correta da API em produção
+          // Função helper para garantir URL correta
+          // URLs do Supabase Storage já vêm corretas, não precisam correção
           const fixImageUrl = (url) => {
             if (!url) return url;
             
-            // URL correta da API em produção
+            // Se é URL do Supabase Storage, retornar como está
+            if (url.includes('supabase.co') || url.includes('storage.googleapis.com')) {
+              return url;
+            }
+            
+            // Para URLs antigas (uploads locais), corrigir se necessário
             const correctBaseUrl = process.env.API_URL || 
                                  (process.env.NODE_ENV === 'production' 
                                    ? 'https://api.slothempresas.com.br' 
@@ -192,11 +198,17 @@ router.get('/:id', async (req, res) => {
       console.warn('Erro ao buscar imagens:', imagensError);
     }
 
-    // Função helper para SEMPRE garantir URL correta da API em produção
+    // Função helper para garantir URL correta
+    // URLs do Supabase Storage já vêm corretas, não precisam correção
     const fixImageUrl = (url) => {
       if (!url) return url;
       
-      // URL correta da API em produção
+      // Se é URL do Supabase Storage, retornar como está
+      if (url.includes('supabase.co') || url.includes('storage.googleapis.com')) {
+        return url;
+      }
+      
+      // Para URLs antigas (uploads locais), corrigir se necessário
       const correctBaseUrl = process.env.API_URL || 
                            (process.env.NODE_ENV === 'production' 
                              ? 'https://api.slothempresas.com.br' 

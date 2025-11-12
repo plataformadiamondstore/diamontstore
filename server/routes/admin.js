@@ -12,9 +12,9 @@ const __dirname = path.dirname(__filename);
 const router = express.Router();
 const upload = multer({ dest: path.join(__dirname, '../uploads/') });
 
-// Configurar multer para múltiplas imagens (até 5)
+// Configurar multer para múltiplas imagens (até 5) - usando memória para upload direto ao Supabase
 const uploadImages = multer({
-  dest: path.join(__dirname, '../uploads/produtos/'),
+  storage: multer.memoryStorage(), // Usar memória para upload direto ao Supabase
   limits: {
     fileSize: 5 * 1024 * 1024, // 5MB por imagem
     files: 5 // máximo 5 imagens
@@ -31,6 +31,37 @@ const uploadImages = multer({
     }
   }
 });
+
+// Função helper para fazer upload de imagem para Supabase Storage
+async function uploadImageToSupabase(file, produtoId) {
+  const BUCKET_NAME = 'produtos';
+  
+  // Gerar nome único para o arquivo
+  const timestamp = Date.now();
+  const randomString = Math.random().toString(36).substring(2, 15);
+  const ext = path.extname(file.originalname) || '.jpg';
+  const fileName = `${produtoId}_${timestamp}_${randomString}${ext}`;
+  
+  // Fazer upload para Supabase Storage
+  const { data, error } = await supabase.storage
+    .from(BUCKET_NAME)
+    .upload(fileName, file.buffer, {
+      contentType: file.mimetype,
+      upsert: false
+    });
+  
+  if (error) {
+    console.error('Erro ao fazer upload para Supabase Storage:', error);
+    throw error;
+  }
+  
+  // Obter URL pública
+  const { data: urlData } = supabase.storage
+    .from(BUCKET_NAME)
+    .getPublicUrl(fileName);
+  
+  return urlData.publicUrl;
+}
 
 // Configurar multer para banners
 const uploadBanner = multer({
@@ -938,30 +969,28 @@ router.post('/produtos', uploadImages.array('imagens', 5), async (req, res) => {
     console.log('Produto criado com sucesso. ID:', produto.id);
     console.log('SKU do produto criado:', produto.sku);
 
-    // Processar imagens se houver
+    // Processar imagens se houver - Upload para Supabase Storage
     const files = req.files || [];
     if (files.length > 0) {
       const imagensData = [];
       
-      // Função helper para construir URL da imagem baseada no ambiente
-      const getImageUrl = (filename) => {
-        const baseUrl = process.env.API_URL || 
-                       (process.env.NODE_ENV === 'production' 
-                         ? 'https://api.slothempresas.com.br' 
-                         : `http://localhost:${process.env.PORT || 3000}`);
-        return `${baseUrl}/uploads/produtos/${filename}`;
-      };
-      
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
-        // Criar URL da imagem baseada no ambiente (produção ou desenvolvimento)
-        const urlImagem = getImageUrl(file.filename);
-        
-        imagensData.push({
-          produto_id: produto.id,
-          url_imagem: urlImagem,
-          ordem: i
-        });
+        try {
+          // Fazer upload para Supabase Storage
+          const urlImagem = await uploadImageToSupabase(file, produto.id);
+          
+          imagensData.push({
+            produto_id: produto.id,
+            url_imagem: urlImagem,
+            ordem: i
+          });
+          
+          console.log(`✅ Imagem ${i + 1} enviada para Supabase Storage: ${urlImagem}`);
+        } catch (error) {
+          console.error(`❌ Erro ao fazer upload da imagem ${i + 1}:`, error);
+          // Continuar com outras imagens mesmo se uma falhar
+        }
       }
 
       // Salvar imagens na tabela produto_imagens
@@ -1171,7 +1200,7 @@ router.put('/produtos/:id', uploadImages.array('imagens', 5), async (req, res) =
       throw buscaError;
     }
 
-    // Processar novas imagens se houver
+    // Processar novas imagens se houver - Upload para Supabase Storage
     const files = req.files || [];
     if (files.length > 0) {
       // Buscar imagens existentes para determinar a ordem
@@ -1185,28 +1214,26 @@ router.put('/produtos/:id', uploadImages.array('imagens', 5), async (req, res) =
       const ultimaOrdem = imagensExistentes && imagensExistentes.length > 0 
         ? imagensExistentes[0].ordem + 1 
         : 0;
-
-      // Função helper para construir URL da imagem baseada no ambiente
-      const getImageUrl = (filename) => {
-        const baseUrl = process.env.API_URL || 
-                       (process.env.NODE_ENV === 'production' 
-                         ? 'https://api.slothempresas.com.br' 
-                         : `http://localhost:${process.env.PORT || 3000}`);
-        return `${baseUrl}/uploads/produtos/${filename}`;
-      };
       
       const imagensData = [];
       
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
-        // Criar URL da imagem baseada no ambiente (produção ou desenvolvimento)
-        const urlImagem = getImageUrl(file.filename);
-        
-        imagensData.push({
-          produto_id: req.params.id,
-          url_imagem: urlImagem,
-          ordem: ultimaOrdem + i
-        });
+        try {
+          // Fazer upload para Supabase Storage
+          const urlImagem = await uploadImageToSupabase(file, req.params.id);
+          
+          imagensData.push({
+            produto_id: req.params.id,
+            url_imagem: urlImagem,
+            ordem: ultimaOrdem + i
+          });
+          
+          console.log(`✅ Imagem ${i + 1} enviada para Supabase Storage: ${urlImagem}`);
+        } catch (error) {
+          console.error(`❌ Erro ao fazer upload da imagem ${i + 1}:`, error);
+          // Continuar com outras imagens mesmo se uma falhar
+        }
       }
 
       if (imagensData.length > 0) {
@@ -1430,11 +1457,17 @@ router.get('/produtos', async (req, res) => {
 
           const imagensArray = Array.isArray(imagensData) ? imagensData : [];
           
-          // Função helper para SEMPRE garantir URL correta da API em produção
+          // Função helper para garantir URL correta
+          // URLs do Supabase Storage já vêm corretas, não precisam correção
           const fixImageUrl = (url) => {
             if (!url) return url;
             
-            // URL correta da API em produção
+            // Se é URL do Supabase Storage, retornar como está
+            if (url.includes('supabase.co') || url.includes('storage.googleapis.com')) {
+              return url;
+            }
+            
+            // Para URLs antigas (uploads locais), corrigir se necessário
             const correctBaseUrl = process.env.API_URL || 
                                  (process.env.NODE_ENV === 'production' 
                                    ? 'https://api.slothempresas.com.br' 
