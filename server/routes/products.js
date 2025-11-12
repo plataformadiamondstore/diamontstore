@@ -49,21 +49,32 @@ router.get('/', async (req, res) => {
 
           const imagensArray = Array.isArray(imagensData) ? imagensData : [];
           
-          // Função helper para corrigir URLs antigas (localhost) para URLs de produção
+          // Função helper para SEMPRE garantir URL correta da API em produção
           const fixImageUrl = (url) => {
             if (!url) return url;
-            // Se a URL contém localhost, substituir pela URL correta da API
-            if (url.includes('localhost:3000') || url.includes('localhost')) {
-              const baseUrl = process.env.API_URL || 
-                             (process.env.NODE_ENV === 'production' 
-                               ? 'https://api.slothempresas.com.br' 
-                               : `http://localhost:${process.env.PORT || 3000}`);
-              // Extrair o caminho da URL antiga (ex: /uploads/produtos/filename.jpg)
-              const pathMatch = url.match(/\/uploads\/.*$/);
-              if (pathMatch) {
-                return `${baseUrl}${pathMatch[0]}`;
-              }
+            
+            // URL correta da API em produção
+            const correctBaseUrl = process.env.API_URL || 
+                                 (process.env.NODE_ENV === 'production' 
+                                   ? 'https://api.slothempresas.com.br' 
+                                   : `http://localhost:${process.env.PORT || 3000}`);
+            
+            // Extrair o caminho da URL (ex: /uploads/produtos/filename.jpg)
+            const pathMatch = url.match(/\/uploads\/.*$/);
+            if (!pathMatch) return url; // Se não tem /uploads, retornar como está
+            
+            const path = pathMatch[0];
+            
+            // Se a URL já está correta, retornar como está
+            if (url.startsWith(correctBaseUrl)) {
+              return url;
             }
+            
+            // Se contém localhost OU não começa com https://api.slothempresas.com.br, CORRIGIR
+            if (url.includes('localhost') || !url.startsWith('https://api.slothempresas.com.br')) {
+              return `${correctBaseUrl}${path}`;
+            }
+            
             return url;
           };
           
@@ -181,21 +192,32 @@ router.get('/:id', async (req, res) => {
       console.warn('Erro ao buscar imagens:', imagensError);
     }
 
-    // Função helper para corrigir URLs antigas (localhost) para URLs de produção
+    // Função helper para SEMPRE garantir URL correta da API em produção
     const fixImageUrl = (url) => {
       if (!url) return url;
-      // Se a URL contém localhost, substituir pela URL correta da API
-      if (url.includes('localhost:3000') || url.includes('localhost')) {
-        const baseUrl = process.env.API_URL || 
-                       (process.env.NODE_ENV === 'production' 
-                         ? 'https://api.slothempresas.com.br' 
-                         : `http://localhost:${process.env.PORT || 3000}`);
-        // Extrair o caminho da URL antiga (ex: /uploads/produtos/filename.jpg)
-        const pathMatch = url.match(/\/uploads\/.*$/);
-        if (pathMatch) {
-          return `${baseUrl}${pathMatch[0]}`;
-        }
+      
+      // URL correta da API em produção
+      const correctBaseUrl = process.env.API_URL || 
+                           (process.env.NODE_ENV === 'production' 
+                             ? 'https://api.slothempresas.com.br' 
+                             : `http://localhost:${process.env.PORT || 3000}`);
+      
+      // Extrair o caminho da URL (ex: /uploads/produtos/filename.jpg)
+      const pathMatch = url.match(/\/uploads\/.*$/);
+      if (!pathMatch) return url; // Se não tem /uploads, retornar como está
+      
+      const path = pathMatch[0];
+      
+      // Se a URL já está correta, retornar como está
+      if (url.startsWith(correctBaseUrl)) {
+        return url;
       }
+      
+      // Se contém localhost OU não começa com https://api.slothempresas.com.br, CORRIGIR
+      if (url.includes('localhost') || !url.startsWith('https://api.slothempresas.com.br')) {
+        return `${correctBaseUrl}${path}`;
+      }
+      
       return url;
     };
     
