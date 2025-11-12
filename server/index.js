@@ -83,33 +83,56 @@ app.use('/api/admin', adminRoutes);
 // Rota pública para buscar link do YouTube (para página de login)
 app.get('/api/marketing/youtube', async (req, res) => {
   try {
+    console.log('🔍 GET /api/marketing/youtube - Buscando link do YouTube...');
+    console.log('   DATABASE_URL configurada?', !!process.env.DATABASE_URL);
+    
     // Usar SQL direto para evitar problemas de schema cache do Supabase
     const pg = await import('pg');
     const { Client } = pg.default;
+    const connectionString = process.env.DATABASE_URL || 'postgresql://postgres:Beniciocaus3131@db.rslnzomohtvwvhymenjh.supabase.co:5432/postgres';
+    
+    console.log('   Connection string:', connectionString.replace(/:[^:@]+@/, ':****@'));
+    
     const client = new Client({
-      connectionString: process.env.DATABASE_URL || 'postgresql://postgres:Beniciocaus3131@db.rslnzomohtvwvhymenjh.supabase.co:5432/postgres',
+      connectionString: connectionString,
       ssl: { rejectUnauthorized: false }
     });
     
     try {
       await client.connect();
+      console.log('   ✅ Conectado ao banco de dados');
+      
       const result = await client.query(
         'SELECT valor FROM configuracoes WHERE chave = $1',
         ['youtube_link']
       );
       
+      console.log('   📊 Resultado da query:', {
+        rows: result.rows.length,
+        valor: result.rows[0]?.valor || '(vazio)'
+      });
+      
+      const youtubeLink = result.rows[0]?.valor || '';
+      
       await client.end();
-      res.json({ youtube_link: result.rows[0]?.valor || '' });
+      
+      console.log('   ✅ Retornando link:', youtubeLink || '(vazio)');
+      res.json({ youtube_link: youtubeLink });
     } catch (dbError) {
       await client.end();
+      console.error('   ❌ Erro na query:', dbError.message);
+      console.error('   ❌ Código do erro:', dbError.code);
+      
       // Se a tabela não existir, retornar vazio
       if (dbError.code === '42P01' || dbError.message.includes('does not exist')) {
+        console.warn('   ⚠️  Tabela configuracoes não existe');
         return res.json({ youtube_link: '' });
       }
       throw dbError;
     }
   } catch (error) {
-    console.error('Erro ao buscar link do YouTube:', error);
+    console.error('❌ Erro ao buscar link do YouTube:', error);
+    console.error('   Stack:', error.stack);
     res.json({ youtube_link: '' }); // Retornar vazio em caso de erro para não quebrar a página
   }
 });
