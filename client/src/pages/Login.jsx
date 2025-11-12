@@ -15,17 +15,45 @@ export default function Login() {
   const { user, login, loading: authLoading } = useAuth();
   const navigate = useNavigate();
 
-  // Detectar se é mobile - INICIALIZAR CORRETAMENTE
+  // Detectar se é mobile - DETECÇÃO MELHORADA
   useEffect(() => {
     const checkMobile = () => {
-      const mobile = window.innerWidth < 768;
+      // Verificar largura da tela
+      const widthCheck = window.innerWidth < 768;
+      
+      // Verificar User-Agent para dispositivos móveis
+      const userAgent = navigator.userAgent || navigator.vendor || (window as any).opera;
+      const isMobileUA = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(userAgent.toLowerCase());
+      
+      // Verificar se é touch device
+      const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+      
+      // Verificar orientação (mobile geralmente tem orientação)
+      const hasOrientation = 'orientation' in window;
+      
+      // Mobile se: largura < 768 OU (User-Agent mobile E touch device)
+      const mobile = widthCheck || (isMobileUA && (isTouchDevice || hasOrientation));
+      
+      console.log('📱 Detecção Mobile:', {
+        width: window.innerWidth,
+        widthCheck,
+        isMobileUA,
+        isTouchDevice,
+        hasOrientation,
+        resultado: mobile
+      });
+      
       setIsMobile(mobile);
     };
     
     // Verificar imediatamente ao montar
     checkMobile();
     window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
+    window.addEventListener('orientationchange', checkMobile);
+    return () => {
+      window.removeEventListener('resize', checkMobile);
+      window.removeEventListener('orientationchange', checkMobile);
+    };
   }, []);
 
   // Buscar link do YouTube
@@ -259,15 +287,20 @@ export default function Login() {
             ...(!isMobile && { marginTop: 0, height: '100%', display: 'flex', flexDirection: 'column' })
           }}
         >
-        <div className={`rounded-2xl shadow-2xl backdrop-blur-md border-2 ${
+        <div className={`rounded-2xl shadow-2xl border-2 ${
           isMobile 
-            ? 'p-5 w-full max-w-[320px] bg-white/30 border-white/50' 
-            : 'p-4 w-full bg-white/20 border-white/40 flex-1 flex flex-col'
+            ? 'p-5 w-full max-w-[320px] bg-white border-gray-200' 
+            : 'p-4 w-full bg-white/20 border-white/40 flex-1 flex flex-col backdrop-blur-md'
         }`}
         style={{
-          backdropFilter: 'blur(10px)',
-          WebkitBackdropFilter: 'blur(10px)',
-          backgroundColor: isMobile ? 'rgba(255, 255, 255, 0.3)' : 'rgba(240, 248, 255, 0.35)',
+          ...(isMobile ? {} : {
+            backdropFilter: 'blur(10px)',
+            WebkitBackdropFilter: 'blur(10px)',
+            backgroundColor: 'rgba(240, 248, 255, 0.35)'
+          }),
+          ...(isMobile ? {
+            backgroundColor: 'rgba(255, 255, 255, 0.95)'
+          } : {}),
           ...(!isMobile && { height: '100%', display: 'flex', flexDirection: 'column' })
         }}>
         <div className={`text-center ${isMobile ? 'mb-5' : 'mb-4'} rounded-lg ${isMobile ? 'p-4' : 'p-3'}`}
