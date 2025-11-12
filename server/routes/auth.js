@@ -24,11 +24,21 @@ router.post('/employee', async (req, res) => {
 
     if (error) {
       console.log('❌ Erro na busca:', error);
-      return res.status(401).json({ error: 'Credenciais inválidas' });
+      console.log('📋 Detalhes do erro:', {
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        hint: error.hint
+      });
+      return res.status(401).json({ 
+        error: 'Credenciais inválidas',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
     }
 
     if (!data) {
       console.log('❌ Funcionário não encontrado');
+      console.log('📋 Parâmetros da busca:', { empresa_numero, clube_numero });
       return res.status(401).json({ error: 'Credenciais inválidas' });
     }
 

@@ -8,8 +8,20 @@ export default function Login() {
   const [clubeNumero, setClubeNumero] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const { user, login, loading: authLoading } = useAuth();
   const navigate = useNavigate();
+
+  // Detectar se é mobile
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   // Redirecionar para home se já estiver logado
   useEffect(() => {
@@ -70,68 +82,63 @@ export default function Login() {
     }
   };
 
+  // Determinar qual banner usar
+  const bannerSrc = isMobile 
+    ? `/banners/banner_mobile.jpeg?t=${Date.now()}`
+    : `/banners/banner_site.jpeg?t=${Date.now()}`;
+
   return (
     <div 
-      className="min-h-screen bg-gradient-to-br from-gray-100 to-gray-200 flex flex-col"
+      className="min-h-screen relative flex items-center justify-center"
       style={{
         minHeight: '100vh',
-        background: 'linear-gradient(to bottom right, #f3f4f6, #e5e7eb)',
-        display: 'flex',
-        flexDirection: 'column'
+        position: 'relative',
+        overflow: 'hidden'
       }}
     >
-      {/* Banner na parte superior - responsivo */}
+      {/* Banner de fundo cobrindo toda a tela */}
       <div 
-        className="w-full flex justify-center overflow-hidden bg-gray-100 min-h-[150px]"
+        className="absolute inset-0 w-full h-full"
         style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
           width: '100%',
-          display: 'flex',
-          justifyContent: 'center',
-          overflow: 'hidden',
-          backgroundColor: '#f3f4f6',
-          minHeight: '150px'
+          height: '100%',
+          zIndex: 0
         }}
       >
         <img 
-          src={`${window.location.origin}/banners/banner-sloth-partners.jpeg?t=${Date.now()}`}
-          alt="Sloth Partners Banner" 
-          className="w-full h-auto object-contain max-h-[200px] sm:max-h-[250px] md:max-h-[300px] lg:max-h-[350px]"
+          src={bannerSrc}
+          alt="Banner de Login" 
+          className="w-full h-full object-cover"
           style={{
             width: '100%',
-            height: 'auto',
-            objectFit: 'contain',
-            maxHeight: '200px'
+            height: '100%',
+            objectFit: 'cover',
+            objectPosition: 'center'
           }}
           onError={(e) => {
             console.error('❌ Erro ao carregar banner:', e.target.src);
-            // Tentar múltiplos caminhos
-            const paths = [
-              '/banners/banner-sloth-partners.jpeg',
-              './banners/banner-sloth-partners.jpeg',
-              `${window.location.origin}/banners/banner-sloth-partners.jpeg`
-            ];
-            const currentPath = e.target.src.split('?')[0];
-            const nextPathIndex = paths.findIndex(p => currentPath.includes(p)) + 1;
-            
-            if (nextPathIndex < paths.length) {
-              console.log('🔄 Tentando próximo caminho:', paths[nextPathIndex]);
-              e.target.src = paths[nextPathIndex] + `?t=${Date.now()}`;
-            } else {
-              // Se todos falharem, mostrar placeholder
-              console.log('⚠️ Todos os caminhos falharam, mostrando placeholder');
-              e.target.style.display = 'none';
-              const placeholder = document.createElement('div');
-              placeholder.style.cssText = 'width: 100%; height: 128px; background: linear-gradient(to right, #a78bfa, #7c3aed); display: flex; align-items: center; justify-content: center;';
-              placeholder.innerHTML = '<span style="color: white; font-size: 1.25rem; font-weight: bold;">Sloth Partners</span>';
-              e.target.parentElement.appendChild(placeholder);
-            }
+            // Fallback para gradiente se o banner não carregar
+            e.target.style.display = 'none';
+            e.target.parentElement.style.background = 'linear-gradient(to bottom right, #f3f4f6, #e5e7eb)';
           }}
           onLoad={(e) => console.log('✅ Banner carregado com sucesso:', e.target.src)}
         />
       </div>
       
-      <div className="flex-1 flex items-center justify-center p-4">
-        <div className="bg-white rounded-lg shadow-2xl p-8 w-full max-w-md">
+      {/* Card de login centralizado por cima do banner */}
+      <div 
+        className="relative z-10 w-full max-w-md mx-auto p-4"
+        style={{
+          position: 'relative',
+          zIndex: 10
+        }}
+      >
+        <div className="bg-white rounded-lg shadow-2xl p-6 md:p-8 w-full backdrop-blur-sm bg-white/95">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-primary-purple mb-2">Sloth Empresas</h1>
           <p className="text-gray-600">Acesse sua conta</p>

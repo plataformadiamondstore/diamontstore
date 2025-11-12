@@ -3591,7 +3591,8 @@ export default function AdminDashboard() {
                               };
 
                               const isExpanded = pedidosExpandidos[pedido.id] || false;
-                              const quantidadeItens = pedido.pedido_itens?.length || 0;
+                              // Calcular quantidade total de itens expandidos (se um item tem quantidade 2, conta como 2 itens)
+                              const quantidadeItens = pedido.pedido_itens?.reduce((sum, item) => sum + (item.quantidade || 1), 0) || 0;
 
                               return (
                                 <div 
@@ -3674,25 +3675,44 @@ export default function AdminDashboard() {
                                       <div className="border-t border-gray-200 pt-4 mt-4">
                                         <p className="text-sm font-semibold text-gray-700 mb-3">Itens do Pedido ({quantidadeItens}):</p>
                                         <div className="space-y-2">
-                                          {pedido.pedido_itens?.map((item, index) => {
-                                            const itemStatus = item.status || 'pendente';
-                                            const itemStatusColors = {
-                                              pendente: 'bg-yellow-100 text-yellow-800',
-                                              'verificando estoque': 'bg-blue-100 text-blue-800',
-                                              'aguardando aprovação de estoque': 'bg-blue-100 text-blue-800',
-                                              'Produto autorizado': 'bg-green-100 text-green-800',
-                                              aprovado: 'bg-green-100 text-green-800',
-                                              'produto sem estoque': 'bg-orange-100 text-orange-800',
-                                              rejeitado: 'bg-red-100 text-red-800'
-                                            };
+                                          {(() => {
+                                            // Expandir itens: se um item tem quantidade > 1, criar múltiplos itens individuais
+                                            const itensExpandidos = [];
+                                            pedido.pedido_itens?.forEach((item, index) => {
+                                              const quantidade = item.quantidade || 1;
+                                              // Criar um item separado para cada unidade
+                                              for (let i = 0; i < quantidade; i++) {
+                                                itensExpandidos.push({
+                                                  ...item,
+                                                  quantidade: 1, // Sempre 1 para cada item expandido
+                                                  itemIndex: index,
+                                                  unidadeIndex: i
+                                                });
+                                              }
+                                            });
                                             
-                                            return (
-                                              <div key={index} className="flex justify-between items-start text-sm bg-white rounded-lg p-3 border border-gray-200">
+                                            return itensExpandidos.map((item, displayIndex) => {
+                                              const itemStatus = item.status || 'pendente';
+                                              const itemStatusColors = {
+                                                pendente: 'bg-yellow-100 text-yellow-800',
+                                                'verificando estoque': 'bg-blue-100 text-blue-800',
+                                                'aguardando aprovação de estoque': 'bg-blue-100 text-blue-800',
+                                                'Produto autorizado': 'bg-green-100 text-green-800',
+                                                aprovado: 'bg-green-100 text-green-800',
+                                                'produto sem estoque': 'bg-orange-100 text-orange-800',
+                                                rejeitado: 'bg-red-100 text-red-800'
+                                              };
+                                              
+                                              return (
+                                                <div key={`item-${item.id}-${item.itemIndex}-${item.unidadeIndex}-${displayIndex}`} className="flex justify-between items-start text-sm bg-white rounded-lg p-3 border border-gray-200 hover:border-primary-purple transition-colors">
                                                 <div className="flex-1">
                                                   <div className="flex items-center gap-2 mb-1">
                                                     <p className="font-medium text-gray-800">
                                                       {item.produtos?.nome || 'Produto não encontrado'}
                                                     </p>
+                                                    <span className="text-xs text-gray-500 font-normal">
+                                                      (Item #{displayIndex + 1})
+                                                    </span>
                                                     <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
                                                       itemStatusColors[itemStatus] || itemStatusColors.pendente
                                                     }`}>
@@ -3706,6 +3726,9 @@ export default function AdminDashboard() {
                                                   {item.variacao && (
                                                     <p className="text-xs text-gray-500 mt-1">Variação: {item.variacao}</p>
                                                   )}
+                                                  <p className="text-xs text-gray-500 mt-1">
+                                                    <strong>ID do Item:</strong> {item.id} | <strong>Quantidade:</strong> {item.quantidade}
+                                                  </p>
                                                   {item.produtos?.descricao && (
                                                     <p className="text-xs text-gray-400 mt-1 line-clamp-2">{item.produtos.descricao}</p>
                                                   )}
@@ -3713,10 +3736,10 @@ export default function AdminDashboard() {
                                                 <div className="text-right ml-4 flex flex-col items-end gap-2">
                                                   <div>
                                                     <p className="text-gray-600">
-                                                      {item.quantidade}x R$ {item.preco.toFixed(2).replace('.', ',')}
+                                                      1x R$ {item.preco.toFixed(2).replace('.', ',')}
                                                     </p>
                                                     <p className="font-semibold text-gray-800">
-                                                      = R$ {(item.quantidade * item.preco).toFixed(2).replace('.', ',')}
+                                                      = R$ {item.preco.toFixed(2).replace('.', ',')}
                                                     </p>
                                                   </div>
                                                   {(itemStatus === 'pendente' || itemStatus === 'verificando estoque' || itemStatus === 'aguardando aprovação de estoque') && (
@@ -3783,7 +3806,8 @@ export default function AdminDashboard() {
                                                 </div>
                                               </div>
                                             );
-                                          })}
+                                            });
+                                          })()}
                                         </div>
                                       </div>
                                     </>

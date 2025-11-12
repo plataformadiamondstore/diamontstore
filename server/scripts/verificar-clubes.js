@@ -69,3 +69,4 @@ async function verificarClubes() {
 
 verificarClubes().catch(console.error);
 
+

@@ -5,7 +5,7 @@ export default function Logo({ className = "" }) {
       <img 
         src="/logo.jpeg" 
         alt="SLOTHS Logo" 
-        className="h-20 w-auto"
+        className="h-12 sm:h-16 md:h-20 w-auto"
         onError={(e) => {
           // Fallback caso a imagem não seja encontrada
           e.target.style.display = 'none';

@@ -10,6 +10,7 @@ export default function Cart() {
   const [cartItems, setCartItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [showSuccessPopup, setShowSuccessPopup] = useState(false);
 
   useEffect(() => {
     if (!user) {
@@ -53,20 +54,31 @@ export default function Cart() {
     if (cartItems.length === 0) return;
     setSubmitting(true);
     try {
-      const itens = cartItems.map(item => ({
-        produto_id: item.produto_id,
-        quantidade: item.quantidade,
-        variacao: item.variacao,
-        preco: item.produtos.preco
-      }));
+      // Separar cada item individualmente - se quantidade for 2, criar 2 itens separados
+      const itens = [];
+      cartItems.forEach(item => {
+        // Criar um item separado para cada unidade
+        for (let i = 0; i < item.quantidade; i++) {
+          itens.push({
+            produto_id: item.produto_id,
+            quantidade: 1, // Sempre quantidade 1 para cada item individual
+            variacao: item.variacao,
+            preco: item.produtos.preco
+          });
+        }
+      });
+
+      console.log('🔍 DEBUG - Itens do carrinho:', cartItems);
+      console.log('🔍 DEBUG - Itens separados para enviar:', itens);
+      console.log('🔍 DEBUG - Total de itens separados:', itens.length);
 
       await api.post('/orders', {
         funcionario_id: user.id,
         itens
       });
 
-      alert('Pedido realizado com sucesso!');
-      navigate('/pedidos');
+      // Mostrar popup de sucesso
+      setShowSuccessPopup(true);
     } catch (error) {
       alert('Erro ao finalizar pedido');
       console.error(error);
@@ -185,6 +197,52 @@ export default function Cart() {
           </div>
         )}
       </div>
+
+      {/* Popup de Sucesso */}
+      {showSuccessPopup && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[200] p-4 animate-fade-in">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 transform transition-all duration-300 scale-100">
+            <div className="text-center">
+              {/* Ícone de sucesso */}
+              <div className="mx-auto w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mb-4">
+                <svg className="w-12 h-12 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              
+              {/* Título */}
+              <h2 className="text-2xl font-bold text-gray-800 mb-3">
+                Obrigado pela compra!
+              </h2>
+              
+              {/* Mensagem */}
+              <p className="text-gray-600 text-lg mb-6">
+                Agora é só aguardar a validação
+              </p>
+              
+              {/* Indicador de carregamento */}
+              <div className="flex justify-center mb-4">
+                <div className="flex space-x-2">
+                  <div className="w-2 h-2 bg-primary-purple rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                  <div className="w-2 h-2 bg-primary-purple rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                  <div className="w-2 h-2 bg-primary-purple rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                </div>
+              </div>
+              
+              {/* Botão para fechar/ir para pedidos */}
+              <button
+                onClick={() => {
+                  setShowSuccessPopup(false);
+                  navigate('/pedidos');
+                }}
+                className="bg-primary-purple text-white px-6 py-3 rounded-lg font-semibold hover:bg-purple-700 transition-colors w-full"
+              >
+                Ver Meus Pedidos
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

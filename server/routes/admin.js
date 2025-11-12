@@ -1734,10 +1734,10 @@ router.put('/pedidos/:pedidoId/itens/:itemId/aprovar', async (req, res) => {
   try {
     const { pedidoId, itemId } = req.params;
     
-    // Buscar o item atual com informações do produto
+    // Buscar o item atual com TODAS as informações necessárias
     const { data: itemAtual, error: errorBuscar } = await supabase
       .from('pedido_itens')
-      .select('status, produto_id, quantidade')
+      .select('*')
       .eq('id', itemId)
       .eq('pedido_id', pedidoId)
       .single();
@@ -1747,70 +1747,144 @@ router.put('/pedidos/:pedidoId/itens/:itemId/aprovar', async (req, res) => {
       return res.status(404).json({ error: 'Item não encontrado' });
     }
 
+    const quantidadeAtual = itemAtual.quantidade || 1;
+    const statusAtual = itemAtual.status || 'pendente';
+
     // Determinar o novo status baseado no status atual
     let novoStatus;
-    if (itemAtual.status === 'pendente' || !itemAtual.status) {
+    if (statusAtual === 'pendente' || !statusAtual) {
       novoStatus = 'aguardando aprovação de estoque';
-    } else if (itemAtual.status === 'aguardando aprovação de estoque') {
+    } else if (statusAtual === 'aguardando aprovação de estoque') {
       novoStatus = 'Produto autorizado';
     } else {
       novoStatus = 'Produto autorizado';
     }
 
-    // Atualizar status do item - NUNCA usar .single() após update
-    const { error: updateError } = await supabase
-      .from('pedido_itens')
-      .update({ status: novoStatus })
-      .eq('id', itemId)
-      .eq('pedido_id', pedidoId);
+    // Se o item tem quantidade > 1, dividir em dois itens: um aprovado e outro(s) pendente(s)
+    if (quantidadeAtual > 1) {
+      // 1. Atualizar o item atual para quantidade 1 com o novo status
+      const { error: updateError } = await supabase
+        .from('pedido_itens')
+        .update({ 
+          quantidade: 1,
+          status: novoStatus
+        })
+        .eq('id', itemId)
+        .eq('pedido_id', pedidoId);
 
-    if (updateError) throw updateError;
+      if (updateError) throw updateError;
 
-    // Aguardar um pouco para garantir que o update foi commitado
-    await new Promise(resolve => setTimeout(resolve, 50));
+      // 2. Criar novo(s) item(s) pendente(s) com o restante da quantidade
+      const quantidadeRestante = quantidadeAtual - 1;
+      if (quantidadeRestante > 0) {
+        const novoItem = {
+          pedido_id: pedidoId,
+          produto_id: itemAtual.produto_id,
+          quantidade: quantidadeRestante,
+          variacao: itemAtual.variacao || null,
+          preco: itemAtual.preco,
+          status: statusAtual === 'aguardando aprovação de estoque' ? 'aguardando aprovação de estoque' : 'pendente'
+        };
 
-    // Buscar item atualizado separadamente
-    const { data: itemAtualizado, error: fetchError } = await supabase
-      .from('pedido_itens')
-      .select('*')
-      .eq('id', itemId)
-      .eq('pedido_id', pedidoId)
-      .limit(1);
+        const { error: insertError } = await supabase
+          .from('pedido_itens')
+          .insert(novoItem);
 
-    if (fetchError) throw fetchError;
-    if (!itemAtualizado || itemAtualizado.length === 0) {
-      throw new Error('Item não encontrado após atualização');
-    }
-
-    // 🔒 CÓDIGO PROTEGIDO - NUNCA REMOVER
-    // Lógica de redução de estoque ao aprovar item - Ver: INVENTARIO_CODIGO_PROTEGIDO.md
-    // Se o status mudou para 'Produto autorizado', reduzir estoque do produto
-    if (novoStatus === 'Produto autorizado' && itemAtual.produto_id) {
-      // Buscar produto atual
-      const { data: produto, error: errorProduto } = await supabase
-        .from('produtos')
-        .select('estoque, ativo')
-        .eq('id', itemAtual.produto_id)
-        .single();
-
-      if (!errorProduto && produto) {
-        const novoEstoque = Math.max(0, (produto.estoque || 0) - (itemAtual.quantidade || 0));
-        const novoAtivo = novoEstoque > 0;
-
-        // Atualizar estoque e status ativo do produto
-        await supabase
-          .from('produtos')
-          .update({ 
-            estoque: novoEstoque,
-            ativo: novoAtivo
-          })
-          .eq('id', itemAtual.produto_id);
+        if (insertError) throw insertError;
       }
 
-      // NÃO mudar status do pedido - status fica apenas nos itens
-    }
+      // 3. Reduzir estoque apenas da quantidade aprovada (1 unidade)
+      if (novoStatus === 'Produto autorizado' && itemAtual.produto_id) {
+        const { data: produto, error: errorProduto } = await supabase
+          .from('produtos')
+          .select('estoque, ativo')
+          .eq('id', itemAtual.produto_id)
+          .single();
 
-    res.json({ success: true, item: itemAtualizado[0] });
+        if (!errorProduto && produto) {
+          const novoEstoque = Math.max(0, (produto.estoque || 0) - 1); // Reduzir apenas 1 unidade
+          const novoAtivo = novoEstoque > 0;
+
+          await supabase
+            .from('produtos')
+            .update({ 
+              estoque: novoEstoque,
+              ativo: novoAtivo
+            })
+            .eq('id', itemAtual.produto_id);
+        }
+      }
+
+      // 4. Buscar o item atualizado
+      const { data: itemAtualizado, error: fetchError } = await supabase
+        .from('pedido_itens')
+        .select('*')
+        .eq('id', itemId)
+        .eq('pedido_id', pedidoId)
+        .limit(1);
+
+      if (fetchError) throw fetchError;
+      if (!itemAtualizado || itemAtualizado.length === 0) {
+        throw new Error('Item não encontrado após atualização');
+      }
+
+      res.json({ success: true, item: itemAtualizado[0], dividido: true });
+    } else {
+      // Se quantidade = 1, apenas atualizar o status normalmente
+      const { error: updateError } = await supabase
+        .from('pedido_itens')
+        .update({ status: novoStatus })
+        .eq('id', itemId)
+        .eq('pedido_id', pedidoId);
+
+      if (updateError) throw updateError;
+
+      // Aguardar um pouco para garantir que o update foi commitado
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      // Buscar item atualizado separadamente
+      const { data: itemAtualizado, error: fetchError } = await supabase
+        .from('pedido_itens')
+        .select('*')
+        .eq('id', itemId)
+        .eq('pedido_id', pedidoId)
+        .limit(1);
+
+      if (fetchError) throw fetchError;
+      if (!itemAtualizado || itemAtualizado.length === 0) {
+        throw new Error('Item não encontrado após atualização');
+      }
+
+      // 🔒 CÓDIGO PROTEGIDO - NUNCA REMOVER
+      // Lógica de redução de estoque ao aprovar item - Ver: INVENTARIO_CODIGO_PROTEGIDO.md
+      // Se o status mudou para 'Produto autorizado', reduzir estoque do produto
+      if (novoStatus === 'Produto autorizado' && itemAtual.produto_id) {
+        // Buscar produto atual
+        const { data: produto, error: errorProduto } = await supabase
+          .from('produtos')
+          .select('estoque, ativo')
+          .eq('id', itemAtual.produto_id)
+          .single();
+
+        if (!errorProduto && produto) {
+          const novoEstoque = Math.max(0, (produto.estoque || 0) - 1);
+          const novoAtivo = novoEstoque > 0;
+
+          // Atualizar estoque e status ativo do produto
+          await supabase
+            .from('produtos')
+            .update({ 
+              estoque: novoEstoque,
+              ativo: novoAtivo
+            })
+            .eq('id', itemAtual.produto_id);
+        }
+
+        // NÃO mudar status do pedido - status fica apenas nos itens
+      }
+
+      res.json({ success: true, item: itemAtualizado[0] });
+    }
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
