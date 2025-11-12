@@ -84,51 +84,73 @@ app.use('/api/admin', adminRoutes);
 app.get('/api/marketing/youtube', async (req, res) => {
   try {
     console.log('🔍 GET /api/marketing/youtube - Buscando link do YouTube...');
-    console.log('   DATABASE_URL configurada?', !!process.env.DATABASE_URL);
     
-    // Usar SQL direto para evitar problemas de schema cache do Supabase
-    const pg = await import('pg');
-    const { Client } = pg.default;
-    const connectionString = process.env.DATABASE_URL || 'postgresql://postgres:Beniciocaus3131@db.rslnzomohtvwvhymenjh.supabase.co:5432/postgres';
-    
-    console.log('   Connection string:', connectionString.replace(/:[^:@]+@/, ':****@'));
-    
-    const client = new Client({
-      connectionString: connectionString,
-      ssl: { rejectUnauthorized: false }
-    });
-    
+    // Tentar primeiro com Supabase Client (mais confiável)
     try {
-      await client.connect();
-      console.log('   ✅ Conectado ao banco de dados');
+      const { data, error } = await supabase
+        .from('configuracoes')
+        .select('valor')
+        .eq('chave', 'youtube_link')
+        .single();
       
-      const result = await client.query(
-        'SELECT valor FROM configuracoes WHERE chave = $1',
-        ['youtube_link']
-      );
+      if (error) {
+        console.warn('⚠️  Erro ao buscar com Supabase Client:', error.message);
+        console.log('   Tentando com SQL direto...');
+        throw error; // Vai para fallback SQL direto
+      }
       
-      console.log('   📊 Resultado da query:', {
-        rows: result.rows.length,
-        valor: result.rows[0]?.valor || '(vazio)'
+      const youtubeLink = data?.valor || '';
+      console.log('✅ Link encontrado via Supabase Client:', youtubeLink || '(vazio)');
+      return res.json({ youtube_link: youtubeLink });
+      
+    } catch (supabaseError) {
+      // Fallback: usar SQL direto se Supabase Client falhar
+      console.log('   Usando fallback SQL direto...');
+      console.log('   DATABASE_URL configurada?', !!process.env.DATABASE_URL);
+      
+      const pg = await import('pg');
+      const { Client } = pg.default;
+      const connectionString = process.env.DATABASE_URL || 'postgresql://postgres:Beniciocaus3131@db.rslnzomohtvwvhymenjh.supabase.co:5432/postgres';
+      
+      console.log('   Connection string:', connectionString.replace(/:[^:@]+@/, ':****@'));
+      
+      const client = new Client({
+        connectionString: connectionString,
+        ssl: { rejectUnauthorized: false }
       });
       
-      const youtubeLink = result.rows[0]?.valor || '';
-      
-      await client.end();
-      
-      console.log('   ✅ Retornando link:', youtubeLink || '(vazio)');
-      res.json({ youtube_link: youtubeLink });
-    } catch (dbError) {
-      await client.end();
-      console.error('   ❌ Erro na query:', dbError.message);
-      console.error('   ❌ Código do erro:', dbError.code);
-      
-      // Se a tabela não existir, retornar vazio
-      if (dbError.code === '42P01' || dbError.message.includes('does not exist')) {
-        console.warn('   ⚠️  Tabela configuracoes não existe');
-        return res.json({ youtube_link: '' });
+      try {
+        await client.connect();
+        console.log('   ✅ Conectado ao banco de dados');
+        
+        const result = await client.query(
+          'SELECT valor FROM configuracoes WHERE chave = $1',
+          ['youtube_link']
+        );
+        
+        console.log('   📊 Resultado da query:', {
+          rows: result.rows.length,
+          valor: result.rows[0]?.valor || '(vazio)'
+        });
+        
+        const youtubeLink = result.rows[0]?.valor || '';
+        
+        await client.end();
+        
+        console.log('   ✅ Retornando link:', youtubeLink || '(vazio)');
+        res.json({ youtube_link: youtubeLink });
+      } catch (dbError) {
+        await client.end();
+        console.error('   ❌ Erro na query:', dbError.message);
+        console.error('   ❌ Código do erro:', dbError.code);
+        
+        // Se a tabela não existir, retornar vazio
+        if (dbError.code === '42P01' || dbError.message.includes('does not exist')) {
+          console.warn('   ⚠️  Tabela configuracoes não existe');
+          return res.json({ youtube_link: '' });
+        }
+        throw dbError;
       }
-      throw dbError;
     }
   } catch (error) {
     console.error('❌ Erro ao buscar link do YouTube:', error);
