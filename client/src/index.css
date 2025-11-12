@@ -10,6 +10,16 @@ html, body {
   overflow-y: auto;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
+  /* Prevenir zoom automático em TODOS os dispositivos móveis */
+  -webkit-text-size-adjust: 100%;
+  -moz-text-size-adjust: 100%;
+  -ms-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  /* Prevenir zoom em double-tap */
+  touch-action: manipulation;
+  -ms-touch-action: manipulation;
+  /* Suporte para safe-area (notch) - iPhone e Android modernos */
+  padding: env(safe-area-inset-top, 0) env(safe-area-inset-right, 0) env(safe-area-inset-bottom, 0) env(safe-area-inset-left, 0);
 }
 
 body {

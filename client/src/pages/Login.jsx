@@ -267,7 +267,16 @@ export default function Login() {
         minHeight: isMobile ? containerHeight : '100vh',
         height: isMobile ? containerHeight : 'auto',
         overflowY: isMobile ? 'auto' : 'visible',
-        overflowX: 'hidden'
+        overflowX: 'hidden',
+        /* Prevenir zoom e garantir proporção correta no iOS */
+        WebkitUserSelect: 'none',
+        userSelect: 'none',
+        WebkitTouchCallout: 'none',
+        /* Suporte para safe-area (notch do iPhone) */
+        paddingTop: isMobile ? 'env(safe-area-inset-top)' : '0',
+        paddingBottom: isMobile ? 'env(safe-area-inset-bottom)' : '0',
+        paddingLeft: isMobile ? 'env(safe-area-inset-left)' : '0',
+        paddingRight: isMobile ? 'env(safe-area-inset-right)' : '0'
       }}
     >
       {/* Banner de fundo cobrindo toda a tela */}
@@ -275,14 +284,16 @@ export default function Login() {
         className={isMobile ? "absolute inset-0 w-full h-full" : "fixed inset-0 w-screen h-screen"}
         style={{
           position: isMobile ? 'absolute' : 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
+          top: isMobile ? 'env(safe-area-inset-top, 0)' : 0,
+          left: isMobile ? 'env(safe-area-inset-left, 0)' : 0,
+          right: isMobile ? 'env(safe-area-inset-right, 0)' : 0,
+          bottom: isMobile ? 'env(safe-area-inset-bottom, 0)' : 0,
           width: '100vw',
-          height: '100vh',
+          height: isMobile ? 'calc(100vh - env(safe-area-inset-top, 0) - env(safe-area-inset-bottom, 0))' : '100vh',
           zIndex: 0,
-          pointerEvents: 'none'
+          pointerEvents: 'none',
+          /* Prevenir zoom */
+          touchAction: 'none'
         }}
       >
         <img 
