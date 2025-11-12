@@ -161,8 +161,8 @@ export default function Login() {
         position: 'relative',
         width: '100%',
         minHeight: isMobile ? containerHeight : '100vh',
-        height: isMobile ? containerHeight : '100vh',
-        overflowY: 'auto',
+        height: isMobile ? containerHeight : 'auto',
+        overflowY: isMobile ? 'auto' : 'visible',
         overflowX: 'hidden'
       }}
     >
@@ -201,52 +201,74 @@ export default function Login() {
         />
       </div>
       
-      {/* Vídeo do YouTube (se houver) */}
-      {youtubeEmbedUrl && (
+      {/* Container para YouTube e Login lado a lado no desktop */}
+      <div 
+        className={`relative z-10 w-full ${
+          isMobile ? 'flex flex-col' : 'flex flex-row items-stretch justify-center gap-6'
+        }`}
+        style={{
+          position: 'relative',
+          zIndex: 10,
+          ...(isMobile ? {} : { marginTop: '35vh', paddingTop: '2rem', paddingLeft: '10%', paddingRight: '10%' })
+        }}
+      >
+        {/* Vídeo do YouTube (se houver) */}
+        {youtubeEmbedUrl && (
+          <div 
+            className={`relative mb-6 ${
+              isMobile ? 'w-full max-w-full px-3 mx-auto' : 'w-2/3 max-w-2xl flex-shrink-0'
+            }`}
+            style={{
+              ...(isMobile && { marginTop: '64vh' })
+            }}
+          >
+            <div className={`bg-black/80 rounded-xl shadow-2xl ${
+              isMobile ? 'p-1' : 'p-2'
+            }`}>
+              <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
+                <iframe
+                  src={youtubeEmbedUrl}
+                  className="absolute top-0 left-0 w-full h-full rounded-lg"
+                  frameBorder="0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                  title="Vídeo do YouTube"
+                ></iframe>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Card de login ao lado direito do YouTube no desktop */}
         <div 
-          className={`relative z-10 w-full mx-auto mb-6 ${
-            isMobile ? 'max-w-full px-3' : 'max-w-4xl px-4'
+          ref={loginCardRef}
+          className={`relative flex justify-center ${
+            isMobile ? 'w-full max-w-md mx-auto px-3 mt-[0vh]' : 'w-1/3 max-w-md flex-shrink-0 flex flex-col'
           }`}
           style={{
             position: 'relative',
             zIndex: 10,
-            ...(isMobile && { marginTop: '64vh' })
+            ...(!isMobile && { marginTop: 0, height: '100%', display: 'flex', flexDirection: 'column' })
           }}
         >
-          <div className={`bg-black/80 rounded-xl shadow-2xl ${
-            isMobile ? 'p-1' : 'p-2'
-          }`}>
-            <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
-              <iframe
-                src={youtubeEmbedUrl}
-                className="absolute top-0 left-0 w-full h-full rounded-lg"
-                frameBorder="0"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-                title="Vídeo do YouTube"
-              ></iframe>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Card de login centralizado por cima do banner */}
-      <div 
-        ref={loginCardRef}
-        className={`relative z-10 w-full max-w-md mx-auto flex justify-center ${
-          isMobile ? 'px-3 mt-[0vh]' : 'px-4'
+        <div className={`rounded-2xl shadow-2xl backdrop-blur-md border-2 ${
+          isMobile 
+            ? 'p-5 w-full max-w-[320px] bg-white/30 border-white/50' 
+            : 'p-4 w-full bg-white/20 border-white/40 flex-1 flex flex-col'
         }`}
         style={{
-          position: 'relative',
-          zIndex: 10
-        }}
-      >
-        <div className={`bg-white rounded-2xl shadow-2xl backdrop-blur-sm bg-white/95 ${
-          isMobile 
-            ? 'p-5 w-full max-w-[320px] border-2 border-white/50' 
-            : 'p-6 md:p-8 w-full'
-        }`}>
-        <div className={`text-center ${isMobile ? 'mb-5' : 'mb-8'}`}>
+          backdropFilter: 'blur(10px)',
+          WebkitBackdropFilter: 'blur(10px)',
+          backgroundColor: isMobile ? 'rgba(255, 255, 255, 0.3)' : 'rgba(240, 248, 255, 0.35)',
+          ...(!isMobile && { height: '100%', display: 'flex', flexDirection: 'column' })
+        }}>
+        <div className={`text-center ${isMobile ? 'mb-5' : 'mb-4'} rounded-lg ${isMobile ? 'p-4' : 'p-3'}`}
+        style={{
+          background: 'rgba(255, 255, 255, 0.4)',
+          backdropFilter: 'blur(8px)',
+          WebkitBackdropFilter: 'blur(8px)',
+          border: '1px solid rgba(255, 255, 255, 0.3)'
+        }}>
           <h1 className={`font-bold text-primary-purple mb-2 ${isMobile ? 'text-2xl' : 'text-3xl'}`}>
             Sloth Empresas
           </h1>
@@ -295,17 +317,22 @@ export default function Login() {
           <button
             type="submit"
             disabled={loading}
-            className={`w-full bg-primary-purple text-white rounded-lg font-semibold hover:bg-purple-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${
+            className={`w-full text-white rounded-lg font-semibold hover:bg-purple-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${
               isMobile 
                 ? 'py-2.5 text-sm shadow-lg hover:shadow-xl transform hover:scale-[1.02]' 
                 : 'py-3'
             }`}
+            style={{
+              backgroundColor: loading ? '#9333ea' : '#9333ea',
+              opacity: loading ? 0.5 : 1
+            }}
           >
             {loading ? 'Entrando...' : 'Entrar'}
           </button>
         </form>
         
         {/* NÃO ADICIONAR BOTÃO DE ACESSO ADMINISTRATIVO AQUI */}
+        </div>
         </div>
       </div>
     </div>

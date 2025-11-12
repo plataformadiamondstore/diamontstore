@@ -2,6 +2,7 @@ import express from 'express';
 import multer from 'multer';
 import xlsx from 'xlsx';
 import path from 'path';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { supabase } from '../index.js';
 
@@ -27,6 +28,41 @@ const uploadImages = multer({
       return cb(null, true);
     } else {
       cb(new Error('Apenas imagens são permitidas (jpeg, jpg, png, gif, webp)'));
+    }
+  }
+});
+
+// Configurar multer para banners
+const uploadBanner = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => {
+      // Salvar na pasta public/banners do client
+      const bannersPath = path.join(__dirname, '../../client/public/banners/');
+      // Garantir que a pasta existe
+      if (!fs.existsSync(bannersPath)) {
+        fs.mkdirSync(bannersPath, { recursive: true });
+      }
+      cb(null, bannersPath);
+    },
+    filename: (req, file, cb) => {
+      const { tipo } = req.body;
+      // Nomear o arquivo baseado no tipo (mobile ou desktop)
+      const filename = tipo === 'mobile' ? 'banner_mobile.jpeg' : 'banner_site.jpeg';
+      cb(null, filename);
+    }
+  }),
+  limits: {
+    fileSize: 10 * 1024 * 1024 // 10MB por banner
+  },
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = /jpeg|jpg|png|webp/;
+    const extname = allowedTypes.test(file.originalname.toLowerCase());
+    const mimetype = allowedTypes.test(file.mimetype);
+    
+    if (mimetype && extname) {
+      return cb(null, true);
+    } else {
+      cb(new Error('Apenas imagens são permitidas (jpeg, jpg, png, webp)'));
     }
   }
 });
@@ -2276,6 +2312,32 @@ router.get('/cadastros/skus', async (req, res) => {
     if (error) throw error;
     res.json(data || []);
   } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ========== MARKETING ==========
+// Upload de banner (mobile ou desktop)
+router.post('/marketing/banner', uploadBanner.single('banner'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'Nenhum arquivo enviado' });
+    }
+
+    const { tipo } = req.body;
+    
+    if (!tipo || (tipo !== 'mobile' && tipo !== 'desktop')) {
+      return res.status(400).json({ error: 'Tipo de banner inválido. Use "mobile" ou "desktop"' });
+    }
+
+    res.json({ 
+      success: true, 
+      message: `Banner ${tipo} atualizado com sucesso`,
+      filename: req.file.filename,
+      path: `/banners/${req.file.filename}`
+    });
+  } catch (error) {
+    console.error('Erro ao fazer upload do banner:', error);
     res.status(500).json({ error: error.message });
   }
 });

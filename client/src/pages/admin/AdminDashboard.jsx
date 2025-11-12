@@ -104,6 +104,12 @@ export default function AdminDashboard() {
   const [filtroCategoriaProdutos, setFiltroCategoriaProdutos] = useState('');
   const [youtubeLink, setYoutubeLink] = useState('');
   const [youtubeLinkLoading, setYoutubeLinkLoading] = useState(false);
+  const [bannerMobile, setBannerMobile] = useState(null);
+  const [bannerDesktop, setBannerDesktop] = useState(null);
+  const [bannerMobileLoading, setBannerMobileLoading] = useState(false);
+  const [bannerDesktopLoading, setBannerDesktopLoading] = useState(false);
+  const [bannerMobilePreview, setBannerMobilePreview] = useState('/banners/banner_mobile.jpeg');
+  const [bannerDesktopPreview, setBannerDesktopPreview] = useState('/banners/banner_site.jpeg');
 
   // Navegação por teclado no visualizador de imagens
   useEffect(() => {
@@ -205,6 +211,9 @@ export default function AdminDashboard() {
           console.error('Erro ao carregar link do YouTube:', error);
           setYoutubeLink('');
         }
+        // Carregar previews dos banners
+        setBannerMobilePreview('/banners/banner_mobile.jpeg?' + Date.now());
+        setBannerDesktopPreview('/banners/banner_site.jpeg?' + Date.now());
       } else if (activeTab === 'cadastros') {
         // Carregar produtos (incluindo desabilitados), categorias, marcas e tamanhos
         const [prodRes, catRes, marRes, tamRes] = await Promise.all([
@@ -3512,6 +3521,214 @@ export default function AdminDashboard() {
                       </div>
                     );
                   })()}
+                </div>
+              </div>
+            </div>
+
+            {/* Seção de Upload de Banners */}
+            <div className="mt-8">
+              <h2 className="text-xl font-bold mb-4">Banners de Fundo</h2>
+              
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Banner Mobile */}
+                <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
+                  <h3 className="text-lg font-semibold mb-4 text-gray-800">Banner Mobile</h3>
+                  
+                  {/* Preview do Banner Mobile */}
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Preview Atual (Formato Mobile)
+                    </label>
+                    <div className="flex justify-center">
+                      <div className="relative bg-gray-800 rounded-[2.5rem] p-2 shadow-2xl" style={{ width: '200px', height: '400px' }}>
+                        {/* Simulação de tela de celular - proporção 9:16 */}
+                        <div className="relative w-full h-full bg-white rounded-[2rem] overflow-hidden border-4 border-gray-900 flex items-start justify-center">
+                          <img
+                            src={bannerMobilePreview}
+                            alt="Banner Mobile Atual"
+                            className="w-full h-auto"
+                            style={{ objectFit: 'cover', objectPosition: 'top' }}
+                            onError={(e) => {
+                              e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="200" height="400"%3E%3Crect width="200" height="400" fill="%23e5e7eb"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" dy=".3em" fill="%239ca3af" font-size="12"%3ENenhum banner%3C/text%3E%3C/svg%3E';
+                            }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-2 text-center">
+                      Preview em formato de celular (9:16)
+                    </p>
+                  </div>
+
+                  {/* Upload do Banner Mobile */}
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Fazer Upload de Nova Imagem
+                    </label>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files[0];
+                        if (file) {
+                          setBannerMobile(file);
+                          // Preview local
+                          const reader = new FileReader();
+                          reader.onloadend = () => {
+                            setBannerMobilePreview(reader.result);
+                          };
+                          reader.readAsDataURL(file);
+                        }
+                      }}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-purple focus:border-transparent text-sm"
+                    />
+                    <p className="text-xs text-gray-500 mt-2">
+                      Formatos aceitos: JPG, PNG, WEBP. Tamanho recomendado: 1080x1920px
+                    </p>
+                  </div>
+
+                  <button
+                    onClick={async (e) => {
+                      if (!bannerMobile) {
+                        alert('Por favor, selecione uma imagem para upload');
+                        return;
+                      }
+
+                      setBannerMobileLoading(true);
+                      try {
+                        const formData = new FormData();
+                        formData.append('banner', bannerMobile);
+                        formData.append('tipo', 'mobile');
+
+                        const response = await api.post('/admin/marketing/banner', formData, {
+                          headers: {
+                            'Content-Type': 'multipart/form-data'
+                          }
+                        });
+
+                        alert('Banner mobile atualizado com sucesso!');
+                        // Recarregar preview
+                        setBannerMobilePreview('/banners/banner_mobile.jpeg?' + Date.now());
+                        setBannerMobile(null);
+                        // Resetar input específico do banner mobile
+                        const mobileInput = e.target.closest('.bg-white').querySelector('input[type="file"]');
+                        if (mobileInput) mobileInput.value = '';
+                      } catch (error) {
+                        console.error('❌ Erro ao fazer upload do banner mobile:', error);
+                        alert('Erro ao fazer upload do banner mobile: ' + (error.response?.data?.error || error.message));
+                      } finally {
+                        setBannerMobileLoading(false);
+                      }
+                    }}
+                    disabled={bannerMobileLoading || !bannerMobile}
+                    className="w-full bg-primary-purple text-white px-6 py-2 rounded-lg font-semibold hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {bannerMobileLoading ? 'Enviando...' : 'Salvar Banner Mobile'}
+                  </button>
+                </div>
+
+                {/* Banner Desktop */}
+                <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
+                  <h3 className="text-lg font-semibold mb-4 text-gray-800">Banner Desktop</h3>
+                  
+                  {/* Preview do Banner Desktop */}
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Preview Atual (Formato Desktop)
+                    </label>
+                    <div className="flex justify-center">
+                      {/* Moldura do Monitor */}
+                      <div className="relative">
+                        {/* Base do monitor */}
+                        <div className="mx-auto w-24 h-6 bg-gray-700 rounded-b-lg"></div>
+                        {/* Suporte do monitor */}
+                        <div className="mx-auto w-1 h-8 bg-gray-600"></div>
+                        {/* Tela do monitor */}
+                        <div className="relative bg-gray-800 rounded-t-lg p-2 shadow-2xl" style={{ width: '400px', height: '225px' }}>
+                          <div className="relative w-full h-full bg-black rounded overflow-hidden border-4 border-gray-900">
+                            <img
+                              src={bannerDesktopPreview}
+                              alt="Banner Desktop Atual"
+                              className="w-full h-full"
+                              style={{ objectFit: 'cover', objectPosition: 'top' }}
+                              onError={(e) => {
+                                e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="225"%3E%3Crect width="400" height="225" fill="%23e5e7eb"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" dy=".3em" fill="%239ca3af" font-size="14"%3ENenhum banner configurado%3C/text%3E%3C/svg%3E';
+                              }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-2 text-center">
+                      Preview em formato de monitor (16:9)
+                    </p>
+                  </div>
+
+                  {/* Upload do Banner Desktop */}
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Fazer Upload de Nova Imagem
+                    </label>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files[0];
+                        if (file) {
+                          setBannerDesktop(file);
+                          // Preview local
+                          const reader = new FileReader();
+                          reader.onloadend = () => {
+                            setBannerDesktopPreview(reader.result);
+                          };
+                          reader.readAsDataURL(file);
+                        }
+                      }}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-purple focus:border-transparent text-sm"
+                    />
+                    <p className="text-xs text-gray-500 mt-2">
+                      Formatos aceitos: JPG, PNG, WEBP. Tamanho recomendado: 1920x1080px
+                    </p>
+                  </div>
+
+                  <button
+                    onClick={async (e) => {
+                      if (!bannerDesktop) {
+                        alert('Por favor, selecione uma imagem para upload');
+                        return;
+                      }
+
+                      setBannerDesktopLoading(true);
+                      try {
+                        const formData = new FormData();
+                        formData.append('banner', bannerDesktop);
+                        formData.append('tipo', 'desktop');
+
+                        const response = await api.post('/admin/marketing/banner', formData, {
+                          headers: {
+                            'Content-Type': 'multipart/form-data'
+                          }
+                        });
+
+                        alert('Banner desktop atualizado com sucesso!');
+                        // Recarregar preview
+                        setBannerDesktopPreview('/banners/banner_site.jpeg?' + Date.now());
+                        setBannerDesktop(null);
+                        // Resetar input específico do banner desktop
+                        const desktopInput = e.target.closest('.bg-white').querySelector('input[type="file"]');
+                        if (desktopInput) desktopInput.value = '';
+                      } catch (error) {
+                        console.error('❌ Erro ao fazer upload do banner desktop:', error);
+                        alert('Erro ao fazer upload do banner desktop: ' + (error.response?.data?.error || error.message));
+                      } finally {
+                        setBannerDesktopLoading(false);
+                      }
+                    }}
+                    disabled={bannerDesktopLoading || !bannerDesktop}
+                    className="w-full bg-primary-purple text-white px-6 py-2 rounded-lg font-semibold hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {bannerDesktopLoading ? 'Enviando...' : 'Salvar Banner Desktop'}
+                  </button>
                 </div>
               </div>
             </div>
