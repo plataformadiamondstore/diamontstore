@@ -6,7 +6,7 @@
   base = "client"
   # Build command - executa dentro de client/ (comando direto sem script)
   # Adiciona timestamp como versão do build para forçar reload
-  command = "npm cache clean --force && rm -rf node_modules dist .vite && npm install && VITE_BUILD_VERSION=$(date +%s) npm run build"
+  command = "cd client && npm cache clean --force && rm -rf node_modules dist .vite && npm install && export VITE_BUILD_VERSION=$(date +%s) && npm run build"
   # Publish directory - relativo à raiz, então client/dist
   publish = "client/dist"
 
