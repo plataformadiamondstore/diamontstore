@@ -2087,14 +2087,30 @@ router.post('/marketing/youtube', async (req, res) => {
     try {
       console.log('   Tentando salvar com Supabase Client...');
       
-      // Usar upsert para inserir ou atualizar
-      const { data, error } = await supabase
+      // Verificar se já existe primeiro
+      const { data: existingData, error: checkError } = await supabase
         .from('configuracoes')
-        .upsert(
-          { chave: 'youtube_link', valor: youtube_link.trim() },
-          { onConflict: 'chave' }
-        )
-        .select();
+        .select('id')
+        .eq('chave', 'youtube_link')
+        .maybeSingle();
+      
+      let result;
+      if (existingData) {
+        // Atualizar se já existe
+        result = await supabase
+          .from('configuracoes')
+          .update({ valor: youtube_link.trim(), updated_at: new Date().toISOString() })
+          .eq('chave', 'youtube_link')
+          .select();
+      } else {
+        // Inserir se não existe
+        result = await supabase
+          .from('configuracoes')
+          .insert({ chave: 'youtube_link', valor: youtube_link.trim() })
+          .select();
+      }
+      
+      const { data, error } = result;
       
       if (error) {
         console.warn('⚠️  Erro ao salvar com Supabase Client:', error.message);

@@ -3422,8 +3422,10 @@ export default function AdminDashboard() {
                       type="text"
                       value={youtubeLink}
                       onChange={(e) => setYoutubeLink(e.target.value)}
+                      onFocus={(e) => e.target.select()}
                       placeholder="Cole o link do YouTube aqui (ex: https://www.youtube.com/watch?v=...)"
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-purple focus:border-transparent"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-purple focus:border-transparent cursor-text"
+                      style={{ cursor: 'text' }}
                     />
                     <p className="text-xs text-gray-500 mt-2">
                       O vídeo será exibido na tela de login, acima do card de login.
