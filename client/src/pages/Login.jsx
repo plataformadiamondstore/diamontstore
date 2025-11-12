@@ -30,7 +30,7 @@ export default function Login() {
   useEffect(() => {
     const loadYoutubeLink = async () => {
       try {
-        const response = await api.get('/marketing/youtube');
+        const response = await api.get('/marketing/youtube?' + Date.now());
         setYoutubeLink(response.data?.youtube_link || '');
       } catch (error) {
         console.error('Erro ao carregar link do YouTube:', error);
@@ -38,6 +38,10 @@ export default function Login() {
       }
     };
     loadYoutubeLink();
+    
+    // Recarregar o link a cada 5 segundos para verificar atualizações
+    const interval = setInterval(loadYoutubeLink, 5000);
+    return () => clearInterval(interval);
   }, []);
 
   // Calcular altura do container baseado no card de login
@@ -227,7 +231,8 @@ export default function Login() {
             }`}>
               <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
                 <iframe
-                  src={youtubeEmbedUrl}
+                  key={youtubeEmbedUrl || 'no-video'}
+                  src={youtubeEmbedUrl || ''}
                   className="absolute top-0 left-0 w-full h-full rounded-lg"
                   frameBorder="0"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
