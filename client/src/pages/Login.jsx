@@ -10,6 +10,7 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [youtubeLink, setYoutubeLink] = useState('');
+  const [youtubeEmbedUrl, setYoutubeEmbedUrl] = useState('');
   const [containerHeight, setContainerHeight] = useState('auto');
   const loginCardRef = useRef(null);
   const { user, login, loading: authLoading } = useAuth();
@@ -56,6 +57,49 @@ export default function Login() {
     };
   }, []);
 
+  // Converter link do YouTube para formato embed
+  const getYoutubeEmbedUrl = (url) => {
+    if (!url || typeof url !== 'string' || url.trim() === '') {
+      console.log('⚠️ URL do YouTube vazia ou inválida:', url);
+      return '';
+    }
+    
+    console.log('🔍 Convertendo URL do YouTube:', url);
+    
+    // Extrair ID do vídeo de diferentes formatos de URL do YouTube
+    let videoId = '';
+    
+    // Formato 1: https://www.youtube.com/watch?v=VIDEO_ID
+    // Formato 2: https://youtu.be/VIDEO_ID
+    // Formato 3: https://www.youtube.com/embed/VIDEO_ID
+    // Formato 4: https://youtube.com/watch?v=VIDEO_ID&list=...
+    // Formato 5: https://m.youtube.com/watch?v=VIDEO_ID
+    
+    const patterns = [
+      /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|m\.youtube\.com\/watch\?v=)([^&\n?#\/]+)/,
+      /youtube\.com\/.*[?&]v=([^&\n?#]+)/,
+      /youtu\.be\/([^?\n&#]+)/
+    ];
+    
+    for (const pattern of patterns) {
+      const match = url.match(pattern);
+      if (match && match[1]) {
+        videoId = match[1];
+        break;
+      }
+    }
+    
+    if (!videoId) {
+      console.error('❌ Não foi possível extrair o ID do vídeo da URL:', url);
+      return '';
+    }
+    
+    console.log('✅ ID do vídeo extraído:', videoId);
+    const embedUrl = `https://www.youtube.com/embed/${videoId}`;
+    console.log('✅ URL de embed gerada:', embedUrl);
+    return embedUrl;
+  };
+
   // Buscar link do YouTube
   useEffect(() => {
     const loadYoutubeLink = async () => {
@@ -66,11 +110,16 @@ export default function Login() {
         const link = response.data?.youtube_link || '';
         console.log('📺 Link recebido:', link);
         setYoutubeLink(link);
+        
+        // Converter imediatamente para embed URL
+        const embedUrl = getYoutubeEmbedUrl(link);
+        setYoutubeEmbedUrl(embedUrl);
       } catch (error) {
         console.error('❌ Erro ao carregar link do YouTube:', error);
         console.error('   URL tentada:', error.config?.url);
         console.error('   Base URL:', error.config?.baseURL);
         setYoutubeLink('');
+        setYoutubeEmbedUrl('');
       }
     };
     loadYoutubeLink();
@@ -79,6 +128,16 @@ export default function Login() {
     const interval = setInterval(loadYoutubeLink, 5000);
     return () => clearInterval(interval);
   }, []);
+  
+  // Atualizar embed URL quando youtubeLink mudar
+  useEffect(() => {
+    if (youtubeLink) {
+      const embedUrl = getYoutubeEmbedUrl(youtubeLink);
+      setYoutubeEmbedUrl(embedUrl);
+    } else {
+      setYoutubeEmbedUrl('');
+    }
+  }, [youtubeLink]);
 
   // Calcular altura do container baseado no card de login
   useEffect(() => {
@@ -171,51 +230,6 @@ export default function Login() {
   const bannerSrc = isMobile 
     ? `/banners/banner_mobile.jpeg?t=${Date.now()}`
     : `/banners/banner_site.jpeg?t=${Date.now()}`;
-
-  // Converter link do YouTube para formato embed
-  const getYoutubeEmbedUrl = (url) => {
-    if (!url || typeof url !== 'string') {
-      console.log('⚠️ URL do YouTube vazia ou inválida:', url);
-      return '';
-    }
-    
-    console.log('🔍 Convertendo URL do YouTube:', url);
-    
-    // Extrair ID do vídeo de diferentes formatos de URL do YouTube
-    let videoId = '';
-    
-    // Formato 1: https://www.youtube.com/watch?v=VIDEO_ID
-    // Formato 2: https://youtu.be/VIDEO_ID
-    // Formato 3: https://www.youtube.com/embed/VIDEO_ID
-    // Formato 4: https://youtube.com/watch?v=VIDEO_ID&list=...
-    // Formato 5: https://m.youtube.com/watch?v=VIDEO_ID
-    
-    const patterns = [
-      /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|m\.youtube\.com\/watch\?v=)([^&\n?#\/]+)/,
-      /youtube\.com\/.*[?&]v=([^&\n?#]+)/,
-      /youtu\.be\/([^?\n&#]+)/
-    ];
-    
-    for (const pattern of patterns) {
-      const match = url.match(pattern);
-      if (match && match[1]) {
-        videoId = match[1];
-        break;
-      }
-    }
-    
-    if (!videoId) {
-      console.error('❌ Não foi possível extrair o ID do vídeo da URL:', url);
-      return '';
-    }
-    
-    console.log('✅ ID do vídeo extraído:', videoId);
-    const embedUrl = `https://www.youtube.com/embed/${videoId}`;
-    console.log('✅ URL de embed gerada:', embedUrl);
-    return embedUrl;
-  };
-
-  const youtubeEmbedUrl = getYoutubeEmbedUrl(youtubeLink);
   
   // Debug: Log do estado do YouTube
   useEffect(() => {
@@ -223,7 +237,8 @@ export default function Login() {
       youtubeLink,
       youtubeEmbedUrl,
       temLink: !!youtubeLink,
-      temEmbedUrl: !!youtubeEmbedUrl
+      temEmbedUrl: !!youtubeEmbedUrl,
+      vaiRenderizar: !!youtubeEmbedUrl
     });
   }, [youtubeLink, youtubeEmbedUrl]);
 
@@ -295,33 +310,55 @@ export default function Login() {
               isMobile ? 'w-full max-w-full px-3 mx-auto' : 'w-2/3 max-w-2xl flex-shrink-0'
             }`}
             style={{
-              ...(isMobile && { marginTop: '64vh' })
+              ...(isMobile && { marginTop: '64vh' }),
+              minHeight: '200px', // Garantir altura mínima
+              visibility: 'visible', // Forçar visibilidade
+              display: 'block' // Forçar display
             }}
           >
             <div className={`bg-black/80 rounded-xl shadow-2xl ${
               isMobile ? 'p-1' : 'p-2'
-            }`}>
-              <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
+            }`}
+            style={{
+              width: '100%',
+              minHeight: '200px'
+            }}>
+              <div className="relative w-full" style={{ paddingBottom: '56.25%', minHeight: '200px' }}>
                 <iframe
                   key={youtubeEmbedUrl || 'no-video'}
                   src={youtubeEmbedUrl || ''}
                   className="absolute top-0 left-0 w-full h-full rounded-lg"
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    minHeight: '200px',
+                    visibility: 'visible',
+                    display: 'block'
+                  }}
                   frameBorder="0"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                   allowFullScreen
                   title="Vídeo do YouTube"
-                  onLoad={() => console.log('✅ Iframe do YouTube carregado:', youtubeEmbedUrl)}
-                  onError={(e) => console.error('❌ Erro ao carregar iframe do YouTube:', e)}
+                  onLoad={() => {
+                    console.log('✅ Iframe do YouTube carregado:', youtubeEmbedUrl);
+                    console.log('✅ Card do YouTube renderizado e visível');
+                  }}
+                  onError={(e) => {
+                    console.error('❌ Erro ao carregar iframe do YouTube:', e);
+                    console.error('   URL tentada:', youtubeEmbedUrl);
+                  }}
                 ></iframe>
               </div>
             </div>
           </div>
+        ) : youtubeLink ? (
+          <div className="text-yellow-600 text-sm p-2 bg-yellow-50 rounded">
+            ⚠️ Link do YouTube configurado mas não pôde ser convertido: {youtubeLink}
+          </div>
         ) : (
-          youtubeLink && (
-            <div className="text-yellow-600 text-sm p-2 bg-yellow-50 rounded">
-              ⚠️ Link do YouTube configurado mas não pôde ser convertido: {youtubeLink}
-            </div>
-          )
+          <div className="text-gray-500 text-xs p-2 bg-gray-50 rounded" style={{ display: 'none' }}>
+            🔍 Aguardando link do YouTube...
+          </div>
         )}
 
         {/* Card de login ao lado direito do YouTube no desktop */}
