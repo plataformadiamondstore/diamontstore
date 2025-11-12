@@ -2072,6 +2072,9 @@ router.post('/marketing/youtube', async (req, res) => {
     console.log('🔍 POST /admin/marketing/youtube - Body recebido:', req.body);
     console.log('🔍 Tipo de youtube_link:', typeof req.body.youtube_link);
     console.log('🔍 Valor de youtube_link:', req.body.youtube_link);
+    console.log('   Ambiente:', process.env.NODE_ENV || 'development');
+    console.log('   SUPABASE_URL configurada?', !!process.env.SUPABASE_URL);
+    console.log('   SUPABASE_SERVICE_KEY configurada?', !!process.env.SUPABASE_SERVICE_KEY);
     
     const { youtube_link } = req.body;
     
@@ -2080,51 +2083,94 @@ router.post('/marketing/youtube', async (req, res) => {
       return res.status(400).json({ error: 'Link do YouTube é obrigatório' });
     }
     
-    // Usar SQL direto para evitar problemas de schema cache do Supabase
-    const pg = await import('pg');
-    const { Client } = pg.default;
-    const client = new Client({
-      connectionString: process.env.DATABASE_URL || 'postgresql://postgres:Beniciocaus3131@db.rslnzomohtvwvhymenjh.supabase.co:5432/postgres',
-      ssl: { rejectUnauthorized: false }
-    });
-    
+    // Tentar primeiro com Supabase Client (mais confiável, usa variáveis já configuradas)
     try {
-      await client.connect();
-      console.log('✅ Conectado ao banco via pg');
+      console.log('   Tentando salvar com Supabase Client...');
       
-      // Verificar se já existe
-      const checkResult = await client.query(
-        'SELECT id FROM configuracoes WHERE chave = $1',
-        ['youtube_link']
-      );
+      // Usar upsert para inserir ou atualizar
+      const { data, error } = await supabase
+        .from('configuracoes')
+        .upsert(
+          { chave: 'youtube_link', valor: youtube_link.trim() },
+          { onConflict: 'chave' }
+        )
+        .select();
       
-      if (checkResult.rows.length > 0) {
-        // Atualizar
-        console.log('🔄 Atualizando configuração existente...');
-        await client.query(
-          'UPDATE configuracoes SET valor = $1, updated_at = NOW() WHERE chave = $2',
-          [youtube_link.trim(), 'youtube_link']
-        );
-        console.log('✅ Configuração atualizada');
-      } else {
-        // Inserir
-        console.log('➕ Criando nova configuração...');
-        await client.query(
-          'INSERT INTO configuracoes (chave, valor) VALUES ($1, $2)',
-          ['youtube_link', youtube_link.trim()]
-        );
-        console.log('✅ Configuração criada');
+      if (error) {
+        console.warn('⚠️  Erro ao salvar com Supabase Client:', error.message);
+        console.warn('   Código:', error.code);
+        console.warn('   Detalhes:', error.details);
+        throw error; // Vai para fallback SQL direto
       }
       
-      await client.end();
-      res.json({ success: true, message: 'Link do YouTube salvo com sucesso' });
-    } catch (dbError) {
-      await client.end();
-      console.error('❌ Erro no banco de dados:', dbError);
-      throw dbError;
+      console.log('✅ Link salvo via Supabase Client');
+      return res.json({ success: true, message: 'Link do YouTube salvo com sucesso' });
+      
+    } catch (supabaseError) {
+      // Fallback: usar SQL direto se Supabase Client falhar
+      console.log('   Usando fallback SQL direto...');
+      
+      const pg = await import('pg');
+      const { Client } = pg.default;
+      
+      // Construir connection string do Supabase
+      // Prioridade: DATABASE_URL > Connection string direta do Supabase
+      let connectionString = process.env.DATABASE_URL;
+      
+      // Se não tiver DATABASE_URL, usar connection string direta do Supabase
+      if (!connectionString) {
+        connectionString = 'postgresql://postgres:Beniciocaus3131@db.rslnzomohtvwvhymenjh.supabase.co:5432/postgres';
+        console.log('   ⚠️  DATABASE_URL não configurada, usando connection string hardcoded');
+      }
+      
+      console.log('   Connection string:', connectionString.replace(/:[^:@]+@/, ':****@'));
+      
+      const client = new Client({
+        connectionString: connectionString,
+        ssl: { rejectUnauthorized: false }
+      });
+      
+      try {
+        await client.connect();
+        console.log('   ✅ Conectado ao banco de dados');
+        
+        // Verificar se já existe
+        const checkResult = await client.query(
+          'SELECT id FROM configuracoes WHERE chave = $1',
+          ['youtube_link']
+        );
+        
+        if (checkResult.rows.length > 0) {
+          // Atualizar
+          console.log('   🔄 Atualizando configuração existente...');
+          await client.query(
+            'UPDATE configuracoes SET valor = $1, updated_at = NOW() WHERE chave = $2',
+            [youtube_link.trim(), 'youtube_link']
+          );
+          console.log('   ✅ Configuração atualizada');
+        } else {
+          // Inserir
+          console.log('   ➕ Criando nova configuração...');
+          await client.query(
+            'INSERT INTO configuracoes (chave, valor) VALUES ($1, $2)',
+            ['youtube_link', youtube_link.trim()]
+          );
+          console.log('   ✅ Configuração criada');
+        }
+        
+        await client.end();
+        return res.json({ success: true, message: 'Link do YouTube salvo com sucesso' });
+        
+      } catch (dbError) {
+        await client.end();
+        console.error('   ❌ Erro na query:', dbError.message);
+        console.error('   ❌ Código do erro:', dbError.code);
+        throw dbError;
+      }
     }
   } catch (error) {
-    console.error('Erro ao salvar link do YouTube:', error);
+    console.error('❌ Erro ao salvar link do YouTube:', error);
+    console.error('   Stack:', error.stack);
     res.status(500).json({ error: error.message });
   }
 });
