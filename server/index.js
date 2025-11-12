@@ -87,21 +87,30 @@ app.get('/api/marketing/youtube', async (req, res) => {
     
     // Tentar primeiro com Supabase Client (mais confiável)
     try {
+      console.log('   Tentando buscar com Supabase Client...');
       const { data, error } = await supabase
         .from('configuracoes')
         .select('valor')
         .eq('chave', 'youtube_link')
-        .single();
+        .maybeSingle(); // Usar maybeSingle() em vez de single() para não dar erro se não encontrar
       
       if (error) {
         console.warn('⚠️  Erro ao buscar com Supabase Client:', error.message);
+        console.warn('   Código:', error.code);
+        console.warn('   Detalhes:', error.details);
         console.log('   Tentando com SQL direto...');
         throw error; // Vai para fallback SQL direto
       }
       
       const youtubeLink = data?.valor || '';
       console.log('✅ Link encontrado via Supabase Client:', youtubeLink || '(vazio)');
-      return res.json({ youtube_link: youtubeLink });
+      
+      if (youtubeLink) {
+        return res.json({ youtube_link: youtubeLink });
+      } else {
+        console.log('   Link vazio via Supabase Client, tentando SQL direto...');
+        throw new Error('Link vazio'); // Vai para fallback
+      }
       
     } catch (supabaseError) {
       // Fallback: usar SQL direto se Supabase Client falhar
