@@ -2070,158 +2070,116 @@ router.put('/pedidos/:pedidoId/itens/:itemId/rejeitar', async (req, res) => {
 router.post('/marketing/youtube', async (req, res) => {
   try {
     console.log('🔍 POST /admin/marketing/youtube - Body recebido:', req.body);
-    console.log('🔍 Tipo de youtube_link:', typeof req.body.youtube_link);
-    console.log('🔍 Valor de youtube_link:', req.body.youtube_link);
-    console.log('   Ambiente:', process.env.NODE_ENV || 'development');
-    console.log('   SUPABASE_URL configurada?', !!process.env.SUPABASE_URL);
-    console.log('   SUPABASE_SERVICE_KEY configurada?', !!process.env.SUPABASE_SERVICE_KEY);
-    
     const { youtube_link } = req.body;
     
     if (!youtube_link || (typeof youtube_link === 'string' && youtube_link.trim() === '')) {
-      console.log('❌ Link do YouTube está vazio ou inválido');
       return res.status(400).json({ error: 'Link do YouTube é obrigatório' });
     }
     
-    // Tentar primeiro com Supabase Client (mais confiável, usa variáveis já configuradas)
-    try {
-      console.log('   Tentando salvar com Supabase Client...');
-      
-      // Verificar se já existe primeiro
-      const { data: existingData, error: checkError } = await supabase
-        .from('configuracoes')
-        .select('id')
-        .eq('chave', 'youtube_link')
-        .maybeSingle();
-      
-      let result;
-      if (existingData) {
-        // Atualizar se já existe
-        result = await supabase
-          .from('configuracoes')
-          .update({ valor: youtube_link.trim(), updated_at: new Date().toISOString() })
-          .eq('chave', 'youtube_link')
-          .select();
-      } else {
-        // Inserir se não existe
-        result = await supabase
-          .from('configuracoes')
-          .insert({ chave: 'youtube_link', valor: youtube_link.trim() })
-          .select();
-      }
-      
-      const { data, error } = result;
-      
-      if (error) {
-        console.warn('⚠️  Erro ao salvar com Supabase Client:', error.message);
-        console.warn('   Código:', error.code);
-        console.warn('   Detalhes:', error.details);
-        throw error; // Vai para fallback SQL direto
-      }
-      
-      console.log('✅ Link salvo via Supabase Client');
-      return res.json({ success: true, message: 'Link do YouTube salvo com sucesso' });
-      
-    } catch (supabaseError) {
-      // Fallback: usar SQL direto se Supabase Client falhar
-      console.log('   Usando fallback SQL direto...');
-      
-      const pg = await import('pg');
-      const { Client } = pg.default;
-      
-      // Construir connection string do Supabase
-      // Prioridade: DATABASE_URL > Connection string direta do Supabase
-      let connectionString = process.env.DATABASE_URL;
-      
-      // Se não tiver DATABASE_URL, usar connection string direta do Supabase
-      if (!connectionString) {
-        connectionString = 'postgresql://postgres:Beniciocaus3131@db.rslnzomohtvwvhymenjh.supabase.co:5432/postgres';
-        console.log('   ⚠️  DATABASE_URL não configurada, usando connection string hardcoded');
-      }
-      
-      console.log('   Connection string:', connectionString.replace(/:[^:@]+@/, ':****@'));
-      
-      const client = new Client({
-        connectionString: connectionString,
-        ssl: { rejectUnauthorized: false }
+    // USAR APENAS SUPABASE CLIENT - SEM FALLBACK SQL DIRETO
+    // O SQL direto está causando ENETUNREACH no Render
+    console.log('   Usando APENAS Supabase Client (sem fallback SQL)...');
+    console.log('   SUPABASE_URL:', process.env.SUPABASE_URL ? '✅ Configurada' : '❌ NÃO configurada');
+    console.log('   SUPABASE_SERVICE_KEY:', process.env.SUPABASE_SERVICE_KEY ? '✅ Configurada' : '❌ NÃO configurada');
+    
+    if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_KEY) {
+      console.error('❌ Variáveis de ambiente do Supabase não configuradas!');
+      return res.status(500).json({ 
+        error: 'Configuração do servidor incompleta. Contate o administrador.' 
       });
-      
-      try {
-        await client.connect();
-        console.log('   ✅ Conectado ao banco de dados');
-        
-        // Verificar se já existe
-        const checkResult = await client.query(
-          'SELECT id FROM configuracoes WHERE chave = $1',
-          ['youtube_link']
-        );
-        
-        if (checkResult.rows.length > 0) {
-          // Atualizar
-          console.log('   🔄 Atualizando configuração existente...');
-          await client.query(
-            'UPDATE configuracoes SET valor = $1, updated_at = NOW() WHERE chave = $2',
-            [youtube_link.trim(), 'youtube_link']
-          );
-          console.log('   ✅ Configuração atualizada');
-        } else {
-          // Inserir
-          console.log('   ➕ Criando nova configuração...');
-          await client.query(
-            'INSERT INTO configuracoes (chave, valor) VALUES ($1, $2)',
-            ['youtube_link', youtube_link.trim()]
-          );
-          console.log('   ✅ Configuração criada');
-        }
-        
-        await client.end();
-        return res.json({ success: true, message: 'Link do YouTube salvo com sucesso' });
-        
-      } catch (dbError) {
-        await client.end();
-        console.error('   ❌ Erro na query:', dbError.message);
-        console.error('   ❌ Código do erro:', dbError.code);
-        throw dbError;
-      }
     }
+    
+    // Verificar se já existe
+    const { data: existingData, error: checkError } = await supabase
+      .from('configuracoes')
+      .select('id')
+      .eq('chave', 'youtube_link')
+      .maybeSingle();
+    
+    if (checkError && checkError.code !== 'PGRST116') { // PGRST116 = not found, é OK
+      console.error('❌ Erro ao verificar configuração:', checkError);
+      return res.status(500).json({ 
+        error: `Erro ao verificar configuração: ${checkError.message}` 
+      });
+    }
+    
+    let result;
+    if (existingData) {
+      // Atualizar se já existe
+      console.log('   🔄 Atualizando configuração existente...');
+      result = await supabase
+        .from('configuracoes')
+        .update({ valor: youtube_link.trim(), updated_at: new Date().toISOString() })
+        .eq('chave', 'youtube_link')
+        .select();
+    } else {
+      // Inserir se não existe
+      console.log('   ➕ Criando nova configuração...');
+      result = await supabase
+        .from('configuracoes')
+        .insert({ chave: 'youtube_link', valor: youtube_link.trim() })
+        .select();
+    }
+    
+    const { data, error } = result;
+    
+    if (error) {
+      console.error('❌ Erro ao salvar com Supabase Client:', error);
+      console.error('   Código:', error.code);
+      console.error('   Mensagem:', error.message);
+      console.error('   Detalhes:', error.details);
+      console.error('   Hint:', error.hint);
+      return res.status(500).json({ 
+        error: `Erro ao salvar: ${error.message}` 
+      });
+    }
+    
+    console.log('✅ Link salvo com sucesso via Supabase Client');
+    return res.json({ success: true, message: 'Link do YouTube salvo com sucesso', data });
+    
   } catch (error) {
-    console.error('❌ Erro ao salvar link do YouTube:', error);
+    console.error('❌ Erro inesperado ao salvar link do YouTube:', error);
+    console.error('   Tipo:', error.constructor.name);
+    console.error('   Mensagem:', error.message);
     console.error('   Stack:', error.stack);
-    res.status(500).json({ error: error.message });
+    return res.status(500).json({ 
+      error: `Erro inesperado: ${error.message}` 
+    });
   }
 });
 
 // Buscar link do YouTube
 router.get('/marketing/youtube', async (req, res) => {
   try {
-    // Usar SQL direto para evitar problemas de schema cache do Supabase
-    const pg = await import('pg');
-    const { Client } = pg.default;
-    const client = new Client({
-      connectionString: process.env.DATABASE_URL || 'postgresql://postgres:Beniciocaus3131@db.rslnzomohtvwvhymenjh.supabase.co:5432/postgres',
-      ssl: { rejectUnauthorized: false }
-    });
+    // USAR APENAS SUPABASE CLIENT - SEM FALLBACK SQL DIRETO
+    console.log('🔍 GET /admin/marketing/youtube - Buscando link...');
     
-    try {
-      await client.connect();
-      const result = await client.query(
-        'SELECT valor FROM configuracoes WHERE chave = $1',
-        ['youtube_link']
-      );
-      
-      await client.end();
-      res.json({ youtube_link: result.rows[0]?.valor || '' });
-    } catch (dbError) {
-      await client.end();
-      // Se a tabela não existir, retornar vazio
-      if (dbError.code === '42P01' || dbError.message.includes('does not exist')) {
+    const { data, error } = await supabase
+      .from('configuracoes')
+      .select('valor')
+      .eq('chave', 'youtube_link')
+      .maybeSingle();
+    
+    if (error) {
+      // Se não encontrou (PGRST116), retornar vazio (não é erro)
+      if (error.code === 'PGRST116') {
+        console.log('   Link não encontrado, retornando vazio');
         return res.json({ youtube_link: '' });
       }
-      throw dbError;
+      
+      console.error('❌ Erro ao buscar link:', error);
+      // Em caso de erro real, retornar vazio para não quebrar a página
+      return res.json({ youtube_link: '' });
     }
+    
+    const youtubeLink = data?.valor || '';
+    console.log('✅ Link encontrado:', youtubeLink || '(vazio)');
+    return res.json({ youtube_link: youtubeLink });
+    
   } catch (error) {
-    console.error('Erro ao buscar link do YouTube:', error);
-    res.json({ youtube_link: '' }); // Retornar vazio em caso de erro
+    console.error('❌ Erro inesperado ao buscar link do YouTube:', error);
+    // Retornar vazio em caso de erro para não quebrar a página
+    return res.json({ youtube_link: '' });
   }
 });
 
