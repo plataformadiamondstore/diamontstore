@@ -80,6 +80,40 @@ app.use('/api/cart', cartRoutes);
 app.use('/api/orders', ordersRoutes);
 app.use('/api/admin', adminRoutes);
 
+// Rota pública para buscar link do YouTube (para página de login)
+app.get('/api/marketing/youtube', async (req, res) => {
+  try {
+    // Usar SQL direto para evitar problemas de schema cache do Supabase
+    const pg = await import('pg');
+    const { Client } = pg.default;
+    const client = new Client({
+      connectionString: process.env.DATABASE_URL || 'postgresql://postgres:Beniciocaus3131@db.rslnzomohtvwvhymenjh.supabase.co:5432/postgres',
+      ssl: { rejectUnauthorized: false }
+    });
+    
+    try {
+      await client.connect();
+      const result = await client.query(
+        'SELECT valor FROM configuracoes WHERE chave = $1',
+        ['youtube_link']
+      );
+      
+      await client.end();
+      res.json({ youtube_link: result.rows[0]?.valor || '' });
+    } catch (dbError) {
+      await client.end();
+      // Se a tabela não existir, retornar vazio
+      if (dbError.code === '42P01' || dbError.message.includes('does not exist')) {
+        return res.json({ youtube_link: '' });
+      }
+      throw dbError;
+    }
+  } catch (error) {
+    console.error('Erro ao buscar link do YouTube:', error);
+    res.json({ youtube_link: '' }); // Retornar vazio em caso de erro para não quebrar a página
+  }
+});
+
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'Server is running' });

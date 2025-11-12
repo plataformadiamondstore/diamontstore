@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
@@ -9,6 +9,9 @@ export default function Login() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [youtubeLink, setYoutubeLink] = useState('');
+  const [containerHeight, setContainerHeight] = useState('auto');
+  const loginCardRef = useRef(null);
   const { user, login, loading: authLoading } = useAuth();
   const navigate = useNavigate();
 
@@ -22,6 +25,48 @@ export default function Login() {
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
+
+  // Buscar link do YouTube
+  useEffect(() => {
+    const loadYoutubeLink = async () => {
+      try {
+        const response = await api.get('/marketing/youtube');
+        setYoutubeLink(response.data?.youtube_link || '');
+      } catch (error) {
+        console.error('Erro ao carregar link do YouTube:', error);
+        setYoutubeLink('');
+      }
+    };
+    loadYoutubeLink();
+  }, []);
+
+  // Calcular altura do container baseado no card de login
+  useEffect(() => {
+    if (isMobile && loginCardRef.current) {
+      const updateHeight = () => {
+        if (loginCardRef.current) {
+          const card = loginCardRef.current;
+          const cardTop = card.offsetTop;
+          const cardHeight = card.offsetHeight;
+          // Altura necessária = posição do card + altura do card + padding inferior
+          const neededHeight = cardTop + cardHeight + 40; // 40px de padding inferior
+          setContainerHeight(`${neededHeight}px`);
+        }
+      };
+
+      // Atualizar após renderização
+      const timeoutId = setTimeout(updateHeight, 200);
+      
+      // Atualizar ao redimensionar
+      window.addEventListener('resize', updateHeight);
+      return () => {
+        clearTimeout(timeoutId);
+        window.removeEventListener('resize', updateHeight);
+      };
+    } else {
+      setContainerHeight('100vh');
+    }
+  }, [isMobile, youtubeLink]);
 
   // Redirecionar para home se já estiver logado
   useEffect(() => {
@@ -87,27 +132,53 @@ export default function Login() {
     ? `/banners/banner_mobile.jpeg?t=${Date.now()}`
     : `/banners/banner_site.jpeg?t=${Date.now()}`;
 
+  // Converter link do YouTube para formato embed
+  const getYoutubeEmbedUrl = (url) => {
+    if (!url) return '';
+    
+    // Extrair ID do vídeo de diferentes formatos de URL do YouTube
+    let videoId = '';
+    
+    // Formato: https://www.youtube.com/watch?v=VIDEO_ID
+    const watchMatch = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\n?#]+)/);
+    if (watchMatch) {
+      videoId = watchMatch[1];
+    }
+    
+    if (!videoId) return '';
+    
+    return `https://www.youtube.com/embed/${videoId}`;
+  };
+
+  const youtubeEmbedUrl = getYoutubeEmbedUrl(youtubeLink);
+
   return (
     <div 
-      className="min-h-screen relative flex items-center justify-center"
+      className={`relative flex flex-col items-center ${
+        isMobile ? 'justify-start' : 'justify-center'
+      }`}
       style={{
-        minHeight: '100vh',
         position: 'relative',
-        overflow: 'hidden'
+        width: '100%',
+        minHeight: isMobile ? containerHeight : '100vh',
+        height: isMobile ? containerHeight : '100vh',
+        overflowY: 'auto',
+        overflowX: 'hidden'
       }}
     >
       {/* Banner de fundo cobrindo toda a tela */}
       <div 
-        className="absolute inset-0 w-full h-full"
+        className={isMobile ? "absolute inset-0 w-full h-full" : "fixed inset-0 w-screen h-screen"}
         style={{
-          position: 'absolute',
+          position: isMobile ? 'absolute' : 'fixed',
           top: 0,
           left: 0,
           right: 0,
           bottom: 0,
-          width: '100%',
-          height: '100%',
-          zIndex: 0
+          width: '100vw',
+          height: '100vh',
+          zIndex: 0,
+          pointerEvents: 'none'
         }}
       >
         <img 
@@ -130,49 +201,93 @@ export default function Login() {
         />
       </div>
       
+      {/* Vídeo do YouTube (se houver) */}
+      {youtubeEmbedUrl && (
+        <div 
+          className={`relative z-10 w-full mx-auto mb-6 ${
+            isMobile ? 'max-w-full px-3' : 'max-w-4xl px-4'
+          }`}
+          style={{
+            position: 'relative',
+            zIndex: 10,
+            ...(isMobile && { marginTop: '64vh' })
+          }}
+        >
+          <div className={`bg-black/80 rounded-xl shadow-2xl ${
+            isMobile ? 'p-1' : 'p-2'
+          }`}>
+            <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
+              <iframe
+                src={youtubeEmbedUrl}
+                className="absolute top-0 left-0 w-full h-full rounded-lg"
+                frameBorder="0"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+                title="Vídeo do YouTube"
+              ></iframe>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Card de login centralizado por cima do banner */}
       <div 
-        className="relative z-10 w-full max-w-md mx-auto p-4"
+        ref={loginCardRef}
+        className={`relative z-10 w-full max-w-md mx-auto flex justify-center ${
+          isMobile ? 'px-3 mt-[0vh]' : 'px-4'
+        }`}
         style={{
           position: 'relative',
           zIndex: 10
         }}
       >
-        <div className="bg-white rounded-lg shadow-2xl p-6 md:p-8 w-full backdrop-blur-sm bg-white/95">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-primary-purple mb-2">Sloth Empresas</h1>
-          <p className="text-gray-600">Acesse sua conta</p>
+        <div className={`bg-white rounded-2xl shadow-2xl backdrop-blur-sm bg-white/95 ${
+          isMobile 
+            ? 'p-5 w-full max-w-[320px] border-2 border-white/50' 
+            : 'p-6 md:p-8 w-full'
+        }`}>
+        <div className={`text-center ${isMobile ? 'mb-5' : 'mb-8'}`}>
+          <h1 className={`font-bold text-primary-purple mb-2 ${isMobile ? 'text-2xl' : 'text-3xl'}`}>
+            Sloth Empresas
+          </h1>
+          <p className={`text-gray-600 ${isMobile ? 'text-sm' : ''}`}>Acesse sua conta</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className={isMobile ? 'space-y-4' : 'space-y-6'}>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className={`block font-medium text-gray-700 mb-2 ${isMobile ? 'text-xs' : 'text-sm'}`}>
               Número da Empresa
             </label>
             <input
               type="text"
               value={empresaNumero}
               onChange={(e) => setEmpresaNumero(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-purple focus:border-transparent"
+              className={`w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-purple focus:border-transparent ${
+                isMobile ? 'px-3 py-2 text-sm' : 'px-4 py-2'
+              }`}
               required
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className={`block font-medium text-gray-700 mb-2 ${isMobile ? 'text-xs' : 'text-sm'}`}>
               Número do Clube
             </label>
             <input
               type="text"
               value={clubeNumero}
               onChange={(e) => setClubeNumero(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-purple focus:border-transparent"
+              className={`w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-purple focus:border-transparent ${
+                isMobile ? 'px-3 py-2 text-sm' : 'px-4 py-2'
+              }`}
               required
             />
           </div>
 
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+            <div className={`bg-red-50 border border-red-200 text-red-700 rounded-lg ${
+              isMobile ? 'px-3 py-2 text-xs' : 'px-4 py-3'
+            }`}>
               {error}
             </div>
           )}
@@ -180,7 +295,11 @@ export default function Login() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-primary-purple text-white py-3 rounded-lg font-semibold hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className={`w-full bg-primary-purple text-white rounded-lg font-semibold hover:bg-purple-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${
+              isMobile 
+                ? 'py-2.5 text-sm shadow-lg hover:shadow-xl transform hover:scale-[1.02]' 
+                : 'py-3'
+            }`}
           >
             {loading ? 'Entrando...' : 'Entrar'}
           </button>

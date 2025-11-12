@@ -1947,6 +1947,104 @@ router.put('/pedidos/:pedidoId/itens/:itemId/rejeitar', async (req, res) => {
   }
 });
 
+// ========== MARKETING ==========
+// Salvar link do YouTube
+router.post('/marketing/youtube', async (req, res) => {
+  try {
+    console.log('🔍 POST /admin/marketing/youtube - Body recebido:', req.body);
+    console.log('🔍 Tipo de youtube_link:', typeof req.body.youtube_link);
+    console.log('🔍 Valor de youtube_link:', req.body.youtube_link);
+    
+    const { youtube_link } = req.body;
+    
+    if (!youtube_link || (typeof youtube_link === 'string' && youtube_link.trim() === '')) {
+      console.log('❌ Link do YouTube está vazio ou inválido');
+      return res.status(400).json({ error: 'Link do YouTube é obrigatório' });
+    }
+    
+    // Usar SQL direto para evitar problemas de schema cache do Supabase
+    const pg = await import('pg');
+    const { Client } = pg.default;
+    const client = new Client({
+      connectionString: process.env.DATABASE_URL || 'postgresql://postgres:Beniciocaus3131@db.rslnzomohtvwvhymenjh.supabase.co:5432/postgres',
+      ssl: { rejectUnauthorized: false }
+    });
+    
+    try {
+      await client.connect();
+      console.log('✅ Conectado ao banco via pg');
+      
+      // Verificar se já existe
+      const checkResult = await client.query(
+        'SELECT id FROM configuracoes WHERE chave = $1',
+        ['youtube_link']
+      );
+      
+      if (checkResult.rows.length > 0) {
+        // Atualizar
+        console.log('🔄 Atualizando configuração existente...');
+        await client.query(
+          'UPDATE configuracoes SET valor = $1, updated_at = NOW() WHERE chave = $2',
+          [youtube_link.trim(), 'youtube_link']
+        );
+        console.log('✅ Configuração atualizada');
+      } else {
+        // Inserir
+        console.log('➕ Criando nova configuração...');
+        await client.query(
+          'INSERT INTO configuracoes (chave, valor) VALUES ($1, $2)',
+          ['youtube_link', youtube_link.trim()]
+        );
+        console.log('✅ Configuração criada');
+      }
+      
+      await client.end();
+      res.json({ success: true, message: 'Link do YouTube salvo com sucesso' });
+    } catch (dbError) {
+      await client.end();
+      console.error('❌ Erro no banco de dados:', dbError);
+      throw dbError;
+    }
+  } catch (error) {
+    console.error('Erro ao salvar link do YouTube:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Buscar link do YouTube
+router.get('/marketing/youtube', async (req, res) => {
+  try {
+    // Usar SQL direto para evitar problemas de schema cache do Supabase
+    const pg = await import('pg');
+    const { Client } = pg.default;
+    const client = new Client({
+      connectionString: process.env.DATABASE_URL || 'postgresql://postgres:Beniciocaus3131@db.rslnzomohtvwvhymenjh.supabase.co:5432/postgres',
+      ssl: { rejectUnauthorized: false }
+    });
+    
+    try {
+      await client.connect();
+      const result = await client.query(
+        'SELECT valor FROM configuracoes WHERE chave = $1',
+        ['youtube_link']
+      );
+      
+      await client.end();
+      res.json({ youtube_link: result.rows[0]?.valor || '' });
+    } catch (dbError) {
+      await client.end();
+      // Se a tabela não existir, retornar vazio
+      if (dbError.code === '42P01' || dbError.message.includes('does not exist')) {
+        return res.json({ youtube_link: '' });
+      }
+      throw dbError;
+    }
+  } catch (error) {
+    console.error('Erro ao buscar link do YouTube:', error);
+    res.json({ youtube_link: '' }); // Retornar vazio em caso de erro
+  }
+});
+
 // Excluir item do pedido
 router.delete('/pedidos/:pedidoId/itens/:itemId', async (req, res) => {
   try {

@@ -102,6 +102,8 @@ export default function AdminDashboard() {
   const [paginaProdutos, setPaginaProdutos] = useState(1);
   const [filtroMarcaProdutos, setFiltroMarcaProdutos] = useState('');
   const [filtroCategoriaProdutos, setFiltroCategoriaProdutos] = useState('');
+  const [youtubeLink, setYoutubeLink] = useState('');
+  const [youtubeLinkLoading, setYoutubeLinkLoading] = useState(false);
 
   // Navegação por teclado no visualizador de imagens
   useEffect(() => {
@@ -193,6 +195,15 @@ export default function AdminDashboard() {
         } catch (error) {
           console.error('Erro ao carregar pedidos:', error);
           setPedidos([]);
+        }
+      } else if (activeTab === 'marketing') {
+        // Carregar link do YouTube
+        try {
+          const response = await api.get('/admin/marketing/youtube');
+          setYoutubeLink(response.data?.youtube_link || '');
+        } catch (error) {
+          console.error('Erro ao carregar link do YouTube:', error);
+          setYoutubeLink('');
         }
       } else if (activeTab === 'cadastros') {
         // Carregar produtos (incluindo desabilitados), categorias, marcas e tamanhos
@@ -1349,14 +1360,15 @@ export default function AdminDashboard() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2">
         <div className="bg-white rounded-lg shadow-sm mb-6">
           <div className="flex border-b">
-            {['dashboard', 'empresas', 'funcionarios', 'cadastros', 'produtos', 'pedidos'].map((tab) => {
+            {['dashboard', 'empresas', 'funcionarios', 'cadastros', 'produtos', 'pedidos', 'marketing'].map((tab) => {
               const tabNames = {
                 'dashboard': 'Dashboard',
                 'empresas': 'Cadastro Empresas',
                 'funcionarios': 'Cadastro Funcionarios',
                 'cadastros': 'Cadastro Produto',
                 'produtos': 'Produtos',
-                'pedidos': 'Pedidos'
+                'pedidos': 'Pedidos',
+                'marketing': 'Marketing'
               };
               return (
                 <button
@@ -3379,6 +3391,129 @@ export default function AdminDashboard() {
                   </div>
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'marketing' && (
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-xl font-bold mb-4">Marketing - Vídeo do YouTube</h2>
+              
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Lado Esquerdo: Formulário */}
+                <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
+                  <h3 className="text-lg font-semibold mb-4 text-gray-800">Configurar Vídeo</h3>
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Link do YouTube
+                    </label>
+                    <input
+                      type="text"
+                      value={youtubeLink}
+                      onChange={(e) => setYoutubeLink(e.target.value)}
+                      placeholder="Cole o link do YouTube aqui (ex: https://www.youtube.com/watch?v=...)"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-purple focus:border-transparent"
+                    />
+                    <p className="text-xs text-gray-500 mt-2">
+                      O vídeo será exibido na tela de login, acima do card de login.
+                    </p>
+                  </div>
+                  
+                  <button
+                    onClick={async () => {
+                      // Validar antes de enviar
+                      if (!youtubeLink || youtubeLink.trim() === '') {
+                        alert('Por favor, insira um link do YouTube');
+                        return;
+                      }
+                      
+                      setYoutubeLinkLoading(true);
+                      try {
+                        console.log('🔍 Enviando link do YouTube:', youtubeLink);
+                        const response = await api.post('/admin/marketing/youtube', {
+                          youtube_link: youtubeLink.trim()
+                        });
+                        console.log('✅ Resposta do servidor:', response.data);
+                        alert('Link do YouTube salvo com sucesso!');
+                        // Recarregar o link para garantir sincronização
+                        const reloadResponse = await api.get('/admin/marketing/youtube');
+                        setYoutubeLink(reloadResponse.data?.youtube_link || '');
+                      } catch (error) {
+                        console.error('❌ Erro ao salvar link do YouTube:', error);
+                        console.error('📋 Detalhes do erro:', {
+                          message: error.message,
+                          response: error.response?.data,
+                          status: error.response?.status
+                        });
+                        alert('Erro ao salvar link do YouTube: ' + (error.response?.data?.error || error.message));
+                      } finally {
+                        setYoutubeLinkLoading(false);
+                      }
+                    }}
+                    disabled={youtubeLinkLoading || !youtubeLink || youtubeLink.trim() === ''}
+                    className="w-full bg-primary-purple text-white px-6 py-2 rounded-lg font-semibold hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {youtubeLinkLoading ? 'Salvando...' : 'Salvar Link'}
+                  </button>
+                </div>
+
+                {/* Lado Direito: Preview do Vídeo */}
+                <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
+                  <h3 className="text-lg font-semibold mb-4 text-gray-800">Preview do Vídeo</h3>
+                  {(() => {
+                    // Converter link do YouTube para formato embed
+                    const getYoutubeEmbedUrl = (url) => {
+                      if (!url) return '';
+                      
+                      let videoId = '';
+                      const watchMatch = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\n?#]+)/);
+                      if (watchMatch) {
+                        videoId = watchMatch[1];
+                      }
+                      
+                      if (!videoId) return '';
+                      return `https://www.youtube.com/embed/${videoId}`;
+                    };
+
+                    const embedUrl = getYoutubeEmbedUrl(youtubeLink);
+
+                    if (!embedUrl) {
+                      return (
+                        <div className="bg-gray-100 rounded-lg p-8 text-center">
+                          <svg className="w-16 h-16 mx-auto text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                          </svg>
+                          <p className="text-gray-500 text-sm">
+                            Nenhum vídeo configurado
+                          </p>
+                          <p className="text-gray-400 text-xs mt-2">
+                            Insira um link do YouTube e salve para visualizar o preview
+                          </p>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div className="bg-black/5 rounded-lg p-2">
+                        <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
+                          <iframe
+                            src={embedUrl}
+                            className="absolute top-0 left-0 w-full h-full rounded-lg"
+                            frameBorder="0"
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                            allowFullScreen
+                            title="Preview do Vídeo do YouTube"
+                          ></iframe>
+                        </div>
+                        <p className="text-xs text-gray-500 mt-2 text-center">
+                          Este é o vídeo que será exibido na tela de login
+                        </p>
+                      </div>
+                    );
+                  })()}
+                </div>
+              </div>
             </div>
           </div>
         )}
