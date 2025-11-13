@@ -35,10 +35,15 @@ npm run dev
 
 ## 📚 Documentação
 
-Consulte os arquivos de documentação na pasta `server/`:
-- `COMO_INICIAR_SERVIDORES.md` - Guia completo de inicialização
-- `CONFIGURACAO_GIT.md` - Configuração do Git
-- `PASSO_A_PASSO_CRIAR_TABELAS.md` - Criação de tabelas
+### Guias Principais
+- `server/COMO_INICIAR_SERVIDORES.md` - Guia completo de inicialização dos servidores
+- `server/CONFIGURACAO_GIT.md` - Configuração do Git
+- `server/PASSO_A_PASSO_CRIAR_TABELAS.md` - Criação de tabelas no Supabase
+
+### Correções e Melhorias
+- `CORRECAO_MOBILE_HEADER_FIXO.md` - Header e filtros fixos no mobile com scroll independente
+- `CORRECAO_MOBILE_TODOS_APARELHOS.md` - Correções de zoom e desproporção para todos os dispositivos móveis
+- `MIGRACAO_SUPABASE_STORAGE.md` - Migração de imagens para Supabase Storage
 
 ## 🔧 Tecnologias
 
