@@ -603,63 +603,123 @@ router.post('/funcionarios/upload', upload.single('file'), async (req, res) => {
       console.log('Chaves encontradas:', chaves);
       
       if (!temHeaderValido) {
-        console.log('⚠️  CORRIGINDO: Headers inválidos detectados (_1, _2, etc). Convertendo manualmente...');
+        console.log('⚠️  CORRIGINDO: Headers inválidos detectados (_1, _2, etc). Lendo headers diretamente do worksheet...');
         
-        // Ler TUDO como array (primeira linha = headers, resto = dados)
-        const allData = xlsx.utils.sheet_to_json(worksheet, {
-          header: 1,
-          defval: '',
-          blankrows: false
-        });
+        // CRÍTICO: Quando sheet_to_json retorna _1, _2, significa que a primeira linha de DADOS
+        // foi lida como se fosse a primeira linha. Precisamos ler os HEADERS diretamente do worksheet
+        // na linha 0 (primeira linha do Excel), não do array!
         
-        console.log('Total de linhas como array:', allData.length);
-        console.log('Primeira linha (headers):', allData[0]);
-        console.log('Segunda linha (dados exemplo):', allData[1]);
+        // 1. Ler headers diretamente da primeira linha do worksheet (linha 0)
+        const range = xlsx.utils.decode_range(worksheet['!ref'] || 'A1');
+        let headers = [];
         
-        if (allData && allData.length > 1) {
-          // Primeira linha são os headers
-          const newHeaders = allData[0].map((h, idx) => {
-            const valor = h !== undefined && h !== null ? String(h).trim() : '';
-            console.log(`Header ${idx}: "${valor}"`);
-            return valor || null;
+        for (let col = range.s.c; col <= range.e.c; col++) {
+          const cellAddress = xlsx.utils.encode_cell({ r: 0, c: col }); // r: 0 = primeira linha
+          const cell = worksheet[cellAddress];
+          // Tentar cell.v (valor), depois cell.w (valor formatado), depois string vazia
+          let valor = '';
+          if (cell) {
+            if (cell.v !== undefined && cell.v !== null) {
+              valor = String(cell.v).trim();
+            } else if (cell.w !== undefined && cell.w !== null) {
+              valor = String(cell.w).trim();
+            }
+          }
+          headers.push(valor || null);
+        }
+        
+        console.log('Headers extraídos diretamente do worksheet (linha 0):', headers);
+        
+        // 2. Se não encontrou headers válidos, tentar ler do allData[0] como fallback
+        if (headers.length === 0 || !headers.some(h => h && h !== '')) {
+          console.log('⚠️  Headers vazios do worksheet. Tentando ler do array...');
+          const allDataTemp = xlsx.utils.sheet_to_json(worksheet, {
+            header: 1,
+            defval: '',
+            blankrows: false
+          });
+          if (allDataTemp && allDataTemp.length > 0 && Array.isArray(allDataTemp[0])) {
+            headers = allDataTemp[0].map(h => {
+              const str = h !== undefined && h !== null ? String(h).trim() : '';
+              return str || null;
+            });
+            console.log('Headers do array (fallback):', headers);
+          }
+        }
+        
+        // 3. Verificar se encontramos headers válidos
+        const temHeadersValidos = headers.length > 0 && headers.some(h => h && h !== '');
+        
+        if (temHeadersValidos) {
+          console.log('✅ Headers válidos encontrados. Convertendo dados...');
+          
+          // 4. Ler TODOS os dados como array (incluindo a primeira linha que são os headers)
+          const allData = xlsx.utils.sheet_to_json(worksheet, {
+            header: 1,
+            defval: '',
+            blankrows: false
           });
           
-          console.log('Headers normalizados:', newHeaders);
+          console.log('Total de linhas como array (incluindo header):', allData.length);
+          if (allData.length > 0) {
+            console.log('Primeira linha do array:', allData[0]);
+            console.log('Tipo da primeira linha:', Array.isArray(allData[0]) ? 'array' : typeof allData[0]);
+          }
+          if (allData.length > 1) {
+            console.log('Segunda linha do array (primeira linha de dados):', allData[1]);
+          }
           
-          // Resto são dados (pular primeira linha)
-          const rows = allData.slice(1);
-          console.log('Total de linhas de dados:', rows.length);
-          
-          // Converter cada linha para objeto usando os headers
-          data = rows.map((row, rowIdx) => {
-            const obj = {};
-            newHeaders.forEach((header, colIdx) => {
-              if (header && header !== '') {
-                const valor = row[colIdx] !== undefined && row[colIdx] !== null 
-                  ? String(row[colIdx]).trim() 
-                  : '';
-                obj[header] = valor;
+          if (allData && allData.length > 1) {
+            // 5. Usar os headers extraídos e converter as linhas de dados
+            // Pular primeira linha do array (que são os headers)
+            const rows = allData.slice(1);
+            console.log('Total de linhas de dados (após pular header):', rows.length);
+            
+            // 6. Converter cada linha para objeto usando os headers extraídos
+            data = rows.map((row, rowIdx) => {
+              const obj = {};
+              
+              // Garantir que row é um array
+              if (!Array.isArray(row)) {
+                console.warn(`Linha ${rowIdx} não é array:`, row);
+                return null;
               }
+              
+              headers.forEach((header, colIdx) => {
+                if (header && header !== '' && header !== null) {
+                  const valor = row[colIdx] !== undefined && row[colIdx] !== null 
+                    ? String(row[colIdx]).trim() 
+                    : '';
+                  obj[header] = valor;
+                }
+              });
+              
+              // Debug primeira linha convertida
+              if (rowIdx === 0) {
+                console.log('Primeira linha convertida:', JSON.stringify(obj, null, 2));
+                console.log('Chaves da primeira linha convertida:', Object.keys(obj));
+                console.log('Row original:', row);
+              }
+              
+              return obj;
+            }).filter(obj => {
+              // Filtrar objetos vazios e nulls
+              return obj !== null && Object.keys(obj).length > 0;
             });
             
-            // Debug primeira linha convertida
-            if (rowIdx === 0) {
-              console.log('Primeira linha convertida:', JSON.stringify(obj, null, 2));
+            console.log('✅ Dados corrigidos. Total após conversão:', data.length);
+            if (data.length > 0) {
+              console.log('Primeira linha corrigida:', JSON.stringify(data[0], null, 2));
+              console.log('Chaves da primeira linha corrigida:', Object.keys(data[0]));
+            } else {
+              console.error('❌ ERRO: Nenhum dado válido após conversão');
             }
-            
-            return obj;
-          }).filter(obj => {
-            // Filtrar objetos vazios
-            return Object.keys(obj).length > 0;
-          });
-          
-          console.log('✅ Dados corrigidos. Total após conversão:', data.length);
-          if (data.length > 0) {
-            console.log('Primeira linha corrigida:', JSON.stringify(data[0], null, 2));
-            console.log('Chaves da primeira linha corrigida:', Object.keys(data[0]));
+          } else {
+            console.error('❌ ERRO: Não foi possível ler dados como array ou array vazio');
           }
         } else {
-          console.error('❌ ERRO: Não foi possível ler dados como array');
+          console.error('❌ ERRO: Não foi possível extrair headers válidos do worksheet');
+          console.error('Headers encontrados:', headers);
         }
       }
     }
