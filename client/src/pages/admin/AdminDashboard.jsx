@@ -596,6 +596,23 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleDeletePedido = async (id) => {
+    if (!confirm('Deseja realmente excluir este pedido? Se houver itens aprovados, o estoque será devolvido automaticamente.')) return;
+    try {
+      await api.delete(`/admin/pedidos/${id}`);
+      
+      // Recarregar pedidos
+      const pedidosRes = await api.get('/admin/pedidos');
+      setPedidos(pedidosRes.data || []);
+      
+      alert('Pedido excluído com sucesso!');
+    } catch (error) {
+      console.error('Erro ao excluir pedido:', error);
+      const errorMessage = error.response?.data?.error || error.message || 'Erro ao excluir pedido';
+      alert('Erro ao excluir pedido: ' + errorMessage);
+    }
+  };
+
   const handleImprimirPorProduto = () => {
     if (pedidos.length === 0) {
       alert('Nenhum pedido para imprimir');
@@ -4047,32 +4064,46 @@ export default function AdminDashboard() {
                                       <p className="text-lg font-bold text-primary-purple">
                                         R$ {totalPedido.toFixed(2).replace('.', ',')}
                                       </p>
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          setPedidosExpandidos({
-                                            ...pedidosExpandidos,
-                                            [pedido.id]: !isExpanded
-                                          });
-                                        }}
-                                        className="mt-2 text-primary-purple hover:text-purple-700 text-sm font-medium flex items-center gap-1"
-                                      >
-                                        {isExpanded ? (
-                                          <>
-                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-                                            </svg>
-                                            Ocultar detalhes
-                                          </>
-                                        ) : (
-                                          <>
-                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                            </svg>
-                                            Ver detalhes
-                                          </>
-                                        )}
-                                      </button>
+                                      <div className="flex flex-col gap-2 mt-2">
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setPedidosExpandidos({
+                                              ...pedidosExpandidos,
+                                              [pedido.id]: !isExpanded
+                                            });
+                                          }}
+                                          className="text-primary-purple hover:text-purple-700 text-sm font-medium flex items-center gap-1"
+                                        >
+                                          {isExpanded ? (
+                                            <>
+                                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                                              </svg>
+                                              Ocultar detalhes
+                                            </>
+                                          ) : (
+                                            <>
+                                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                              </svg>
+                                              Ver detalhes
+                                            </>
+                                          )}
+                                        </button>
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleDeletePedido(pedido.id);
+                                          }}
+                                          className="text-red-600 hover:text-red-700 text-sm font-medium flex items-center gap-1"
+                                        >
+                                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                          </svg>
+                                          Excluir
+                                        </button>
+                                      </div>
                                     </div>
                                   </div>
                                   

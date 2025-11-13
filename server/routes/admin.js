@@ -2255,7 +2255,60 @@ router.delete('/pedidos/:pedidoId/itens/:itemId', async (req, res) => {
 // Excluir pedido
 router.delete('/pedidos/:id', async (req, res) => {
   try {
-    // Primeiro, excluir os itens do pedido (pedido_itens)
+    // Primeiro, buscar os itens do pedido para verificar se há itens aprovados
+    const { data: itensPedido, error: errorBuscarItens } = await supabase
+      .from('pedido_itens')
+      .select('id, produto_id, quantidade, status')
+      .eq('pedido_id', req.params.id);
+
+    if (errorBuscarItens) {
+      console.error('Erro ao buscar itens do pedido:', errorBuscarItens);
+      throw errorBuscarItens;
+    }
+
+    // Se houver itens aprovados, devolver o estoque
+    if (itensPedido && itensPedido.length > 0) {
+      const itensAprovados = itensPedido.filter(item => 
+        item.status === 'Produto autorizado' || item.status === 'aprovado'
+      );
+
+      if (itensAprovados.length > 0) {
+        // Agrupar por produto_id para somar as quantidades
+        const produtosParaAtualizar = {};
+        itensAprovados.forEach(item => {
+          if (item.produto_id) {
+            if (!produtosParaAtualizar[item.produto_id]) {
+              produtosParaAtualizar[item.produto_id] = 0;
+            }
+            produtosParaAtualizar[item.produto_id] += item.quantidade || 0;
+          }
+        });
+
+        // Atualizar estoque de cada produto
+        for (const [produtoId, quantidadeDevolver] of Object.entries(produtosParaAtualizar)) {
+          const { data: produto, error: errorProduto } = await supabase
+            .from('produtos')
+            .select('estoque, ativo')
+            .eq('id', produtoId)
+            .single();
+
+          if (!errorProduto && produto) {
+            const novoEstoque = (produto.estoque || 0) + quantidadeDevolver;
+            const novoAtivo = novoEstoque > 0;
+
+            await supabase
+              .from('produtos')
+              .update({ 
+                estoque: novoEstoque,
+                ativo: novoAtivo
+              })
+              .eq('id', produtoId);
+          }
+        }
+      }
+    }
+
+    // Depois, excluir os itens do pedido (pedido_itens)
     const { error: deleteItensError } = await supabase
       .from('pedido_itens')
       .delete()
@@ -2266,7 +2319,7 @@ router.delete('/pedidos/:id', async (req, res) => {
       throw deleteItensError;
     }
 
-    // Depois, excluir o pedido
+    // Por fim, excluir o pedido
     const { error: deleteError } = await supabase
       .from('pedidos')
       .delete()
