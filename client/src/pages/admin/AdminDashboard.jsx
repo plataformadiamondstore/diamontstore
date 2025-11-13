@@ -356,8 +356,11 @@ export default function AdminDashboard() {
       alert('Cadastro realizado com sucesso!');
     } catch (error) {
       console.error('Erro ao criar cadastro unificado:', error);
-      const errorMessage = error.response?.data?.error || error.message || 'Erro ao realizar cadastro';
-      alert('Erro ao realizar cadastro: ' + errorMessage);
+      console.error('Detalhes do erro:', error.response?.data || error.message);
+      
+      // Mostrar mensagem de erro mais detalhada
+      const errorMessage = error.response?.data?.error || error.message || 'Erro desconhecido ao realizar cadastro';
+      alert(`Erro ao realizar cadastro: ${errorMessage}`);
     }
   };
 
@@ -1883,14 +1886,13 @@ export default function AdminDashboard() {
                 />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Nome do Clube *</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Nome do Clube</label>
                 <input
                   type="text"
-                      placeholder="Nome do Clube"
+                      placeholder="Nome do Clube (opcional)"
                       value={formularioUnificado.nome_clube}
                       onChange={(e) => setFormularioUnificado({ ...formularioUnificado, nome_clube: e.target.value })}
                       className="w-full px-4 py-2 border rounded-lg"
-                      required
                     />
                   </div>
                   <div>
