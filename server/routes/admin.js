@@ -593,23 +593,45 @@ router.post('/funcionarios/upload', upload.single('file'), async (req, res) => {
 
     // Função auxiliar para buscar valor ignorando maiúsculas/minúsculas e espaços
     const buscarValor = (obj, possiveisChaves) => {
+      if (!obj || typeof obj !== 'object') {
+        return null;
+      }
+      
       const chavesObj = Object.keys(obj || {});
+      
+      // Primeiro, tentar busca exata
       for (const chavePossivel of possiveisChaves) {
-        // Buscar exata
-        if (obj[chavePossivel] !== undefined && obj[chavePossivel] !== null) {
-          return obj[chavePossivel];
-        }
-        // Buscar ignorando case e espaços
-        const chaveEncontrada = chavesObj.find((k) => {
-          const regex = /\s+/g;
-          const kNormalized = k.toLowerCase().replace(regex, '');
-          const chaveNormalized = chavePossivel.toLowerCase().replace(regex, '');
-          return kNormalized === chaveNormalized;
-        });
-        if (chaveEncontrada && obj[chaveEncontrada] !== undefined && obj[chaveEncontrada] !== null) {
-          return obj[chaveEncontrada];
+        if (obj[chavePossivel] !== undefined && obj[chavePossivel] !== null && obj[chavePossivel] !== '') {
+          const valor = obj[chavePossivel];
+          // Converter para string e remover espaços extras
+          const valorStr = String(valor).trim();
+          if (valorStr && valorStr !== 'null' && valorStr !== 'undefined') {
+            return valorStr;
+          }
         }
       }
+      
+      // Depois, buscar ignorando case, espaços e caracteres especiais
+      for (const chavePossivel of possiveisChaves) {
+        const chaveEncontrada = chavesObj.find((k) => {
+          // Normalizar: remover espaços, caracteres especiais e converter para minúsculas
+          const kNormalized = k.toLowerCase().replace(/\s+/g, '').replace(/[_\-\.,;:]/g, '');
+          const chaveNormalized = chavePossivel.toLowerCase().replace(/\s+/g, '').replace(/[_\-\.,;:]/g, '');
+          return kNormalized === chaveNormalized;
+        });
+        
+        if (chaveEncontrada) {
+          const valor = obj[chaveEncontrada];
+          if (valor !== undefined && valor !== null && valor !== '') {
+            // Converter para string e remover espaços extras
+            const valorStr = String(valor).trim();
+            if (valorStr && valorStr !== 'null' && valorStr !== 'undefined') {
+              return valorStr;
+            }
+          }
+        }
+      }
+      
       return null;
     };
 
@@ -629,9 +651,21 @@ router.post('/funcionarios/upload', upload.single('file'), async (req, res) => {
       // Suportar múltiplas variações de nomes de colunas (incluindo nome_empregado da planilha)
       const possiveisNomes = [
         'nome_empregado', 'Nome Empregado', 'NOME EMPREGADO', 'nome empregado', 'Nome empregado',
-        'nome_completo', 'Nome Completo', 'NOME COMPLETO', 'nome completo', 'Nome completo'
+        'nome_completo', 'Nome Completo', 'NOME COMPLETO', 'nome completo', 'Nome completo',
+        'nome', 'Nome', 'NOME', 'empregado', 'Empregado', 'EMPREGADO',
+        'funcionario', 'Funcionario', 'FUNCIONARIO', 'funcionário', 'Funcionário', 'FUNCIONÁRIO'
       ];
       const nomeCompleto = buscarValor(row, possiveisNomes);
+      
+      // Debug para a primeira linha
+      if (index === 0) {
+        console.log('=== DEBUG: Primeira linha do Excel ===');
+        console.log('Chaves disponíveis:', Object.keys(row));
+        console.log('Valores da linha:', row);
+        console.log('Nome encontrado:', nomeCompleto);
+        console.log('Tipo do nome:', typeof nomeCompleto);
+        console.log('=====================================');
+      }
       const possiveisCadastrosEmpresa = [
         'cadastro_empresa', 'Cadastro Empresa', 'CADASTRO EMPRESA', 'cadastro empresa', 'Cadastro empresa'
       ];
@@ -643,17 +677,29 @@ router.post('/funcionarios/upload', upload.single('file'), async (req, res) => {
       const cadastroClube = buscarValor(row, possiveisCadastrosClube);
 
       // Validar e converter para string, removendo espaços
-      const nomeCompletoStr = nomeCompleto ? String(nomeCompleto).trim() : null;
+      // A função buscarValor já retorna string trimada ou null, mas vamos garantir
+      let nomeCompletoStr = null;
+      if (nomeCompleto) {
+        // Converter para string e remover espaços extras
+        nomeCompletoStr = String(nomeCompleto).trim();
+        // Se for apenas espaços ou strings inválidas, considerar null
+        if (nomeCompletoStr === '' || nomeCompletoStr === 'null' || nomeCompletoStr === 'undefined' || nomeCompletoStr === 'NaN') {
+          nomeCompletoStr = null;
+        }
+      }
+      
       const cadastroEmpresaStr = cadastroEmpresa ? String(cadastroEmpresa).trim() : null;
       const cadastroClubeStr = cadastroClube ? String(cadastroClube).trim() : null;
 
       // Validação rigorosa - não permitir null, undefined, ou strings vazias
-      if (!nomeCompletoStr || nomeCompletoStr === '' || nomeCompletoStr === 'null' || nomeCompletoStr === 'undefined') {
+      if (!nomeCompletoStr || nomeCompletoStr === '' || nomeCompletoStr === 'null' || nomeCompletoStr === 'undefined' || nomeCompletoStr === 'NaN') {
         const chavesEncontradas = Object.keys(row).join(', ');
         const linhaNum = index + 2;
-        erros.push('Linha ' + linhaNum + ': Nome Empregado é obrigatório e não pode estar vazio. Chaves encontradas: ' + chavesEncontradas);
+        const valoresLinha = Object.entries(row).map(([k, v]) => `${k}: ${v}`).join(', ');
+        erros.push('Linha ' + linhaNum + ': Nome Empregado é obrigatório e não pode estar vazio. Chaves encontradas: ' + chavesEncontradas + '. Valores: ' + valoresLinha);
         console.error('Linha ' + linhaNum + ' - Nome não encontrado. Chaves disponíveis:', Object.keys(row));
         console.error('Linha ' + linhaNum + ' - Valores da linha:', row);
+        console.error('Linha ' + linhaNum + ' - Nome retornado pela busca:', nomeCompleto);
         return;
       }
 
