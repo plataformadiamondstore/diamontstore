@@ -176,7 +176,15 @@ export default function ManagerDashboard() {
       minute: '2-digit'
     });
 
-    const totalPedido = pedido.pedido_itens?.reduce((sum, item) => sum + (parseFloat(item.preco || 0) * (item.quantidade || 0)), 0) || 0;
+    // FILTRAR APENAS ITENS APROVADOS para impressão
+    const itensAprovados = pedido.pedido_itens?.filter(item => 
+      item.status === 'Produto autorizado' || item.status === 'aprovado'
+    ) || [];
+
+    // Calcular total APENAS com itens aprovados
+    const totalPedido = itensAprovados.reduce((sum, item) => 
+      sum + (parseFloat(item.preco || 0) * (item.quantidade || 0)), 0
+    );
 
     // Normalizar dados antes de criar a template string
     const { funcionario: func, empresa: emp, clube: clb } = normalizarDadosPedido(pedido);
@@ -225,7 +233,7 @@ export default function ManagerDashboard() {
                 <th>Quantidade</th>
                 <th>Preço Unit.</th>
               </tr>
-              ${pedido.pedido_itens?.map(item => {
+              ${itensAprovados.length > 0 ? itensAprovados.map(item => {
                 const sku = item.produtos?.sku || item.produtos?.codigo || item.sku || '-';
                 return `
                   <tr>
@@ -236,7 +244,7 @@ export default function ManagerDashboard() {
                     <td>R$ ${parseFloat(item.preco || 0).toFixed(2).replace('.', ',')}</td>
                   </tr>
                 `;
-              }).join('') || '<tr><td colspan="5" style="text-align: center;">Nenhum item encontrado</td></tr>'}
+              }).join('') : '<tr><td colspan="5" style="text-align: center;">Nenhum item aprovado encontrado</td></tr>'}
             </table>
             <div style="margin-top: 10px; text-align: right; font-size: 12px; font-weight: bold;">
               <p><strong>Total:</strong> R$ ${totalPedido.toFixed(2).replace('.', ',')}</p>
@@ -579,9 +587,23 @@ export default function ManagerDashboard() {
                 // Normalizar dados do pedido usando função robusta
                 const { funcionario, empresa, clube } = normalizarDadosPedido(pedido);
                 
-                const total = pedido.pedido_itens?.reduce((sum, item) => {
+                // Calcular total baseado no filtro ativo
+                // Se filtro for "aprovado", somar apenas itens aprovados
+                // Se filtro for "rejeitado", somar apenas itens rejeitados
+                // Caso contrário, somar todos os itens
+                const itensParaTotal = pedido.pedido_itens?.filter(item => {
+                  if (filters.status === 'aprovado') {
+                    return item.status === 'Produto autorizado' || item.status === 'aprovado';
+                  }
+                  if (filters.status === 'rejeitado') {
+                    return item.status === 'rejeitado';
+                  }
+                  return true; // Sem filtro, mostrar todos
+                }) || [];
+                
+                const total = itensParaTotal.reduce((sum, item) => {
                   return sum + (parseFloat(item.preco || 0) * item.quantidade);
-                }, 0) || 0;
+                }, 0);
 
                 return (
                   <div key={pedido.id} className="bg-white rounded-lg shadow-sm p-6">
