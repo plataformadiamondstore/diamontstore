@@ -579,7 +579,34 @@ router.post('/funcionarios/upload', upload.single('file'), async (req, res) => {
     const workbook = xlsx.readFile(filePath);
     const sheetName = workbook.SheetNames[0];
     const worksheet = workbook.Sheets[sheetName];
-    const data = xlsx.utils.sheet_to_json(worksheet);
+    
+    // Tentar ler com diferentes opções para suportar mais formatos
+    // Primeiro, tentar com header na primeira linha (padrão)
+    let data = xlsx.utils.sheet_to_json(worksheet, {
+      defval: '', // Valor padrão para células vazias
+      blankrows: false // Não incluir linhas completamente vazias
+    });
+    
+    // Se não houver dados, tentar sem header (primeira linha como dados)
+    if (!data || data.length === 0) {
+      console.log('Tentando ler sem header...');
+      data = xlsx.utils.sheet_to_json(worksheet, {
+        header: 1, // Usar primeira linha como dados
+        defval: '',
+        blankrows: false
+      });
+      
+      // Se ainda não houver dados, tentar com range
+      if (!data || data.length === 0) {
+        const range = xlsx.utils.decode_range(worksheet['!ref'] || 'A1');
+        console.log('Range do worksheet:', range);
+        data = xlsx.utils.sheet_to_json(worksheet, {
+          range: 0, // Começar da primeira linha
+          defval: '',
+          blankrows: false
+        });
+      }
+    }
 
     console.log('Total de linhas no Excel:', data.length);
 
@@ -647,13 +674,42 @@ router.post('/funcionarios/upload', upload.single('file'), async (req, res) => {
       console.log('================================');
     }
 
-    data.forEach(function(row, index) {
+    // Filtrar linhas completamente vazias antes de processar
+    const linhasValidas = data.filter((row, index) => {
+      if (!row || typeof row !== 'object') return false;
+      const chaves = Object.keys(row);
+      // Se não houver chaves ou todas as chaves tiverem valores vazios, ignorar
+      if (chaves.length === 0) return false;
+      const temValor = chaves.some(chave => {
+        const valor = row[chave];
+        return valor !== null && valor !== undefined && valor !== '' && String(valor).trim() !== '';
+      });
+      return temValor;
+    });
+
+    console.log('Linhas válidas após filtro:', linhasValidas.length, 'de', data.length);
+
+    linhasValidas.forEach(function(row, index) {
       // Suportar múltiplas variações de nomes de colunas (incluindo nome_empregado da planilha)
+      // Adicionar variações comuns em planilhas brasileiras e da Schaeffler
       const possiveisNomes = [
-        'nome_empregado', 'Nome Empregado', 'NOME EMPREGADO', 'nome empregado', 'Nome empregado',
-        'nome_completo', 'Nome Completo', 'NOME COMPLETO', 'nome completo', 'Nome completo',
+        // Variações com underscore
+        'nome_empregado', 'Nome_Empregado', 'NOME_EMPREGADO', 'nome_empregado', 'Nome_Empregado',
+        'nome_completo', 'Nome_Completo', 'NOME_COMPLETO', 'nome_completo', 'Nome_Completo',
+        // Variações com espaço
+        'Nome Empregado', 'NOME EMPREGADO', 'nome empregado', 'Nome empregado',
+        'Nome Completo', 'NOME COMPLETO', 'nome completo', 'Nome completo',
+        // Variações simples
         'nome', 'Nome', 'NOME', 'empregado', 'Empregado', 'EMPREGADO',
-        'funcionario', 'Funcionario', 'FUNCIONARIO', 'funcionário', 'Funcionário', 'FUNCIONÁRIO'
+        'funcionario', 'Funcionario', 'FUNCIONARIO', 'funcionário', 'Funcionário', 'FUNCIONÁRIO',
+        // Variações comuns em planilhas corporativas
+        'Nome do Empregado', 'NOME DO EMPREGADO', 'nome do empregado',
+        'Nome do Funcionário', 'NOME DO FUNCIONÁRIO', 'nome do funcionário',
+        'Nome Funcionário', 'NOME FUNCIONÁRIO', 'nome funcionário',
+        'Colaborador', 'colaborador', 'COLABORADOR', 'Nome Colaborador',
+        // Variações com acentos e sem acentos
+        'Nome Empregado', 'Nome Empregado', 'nome empregado',
+        'Funcionario', 'funcionario', 'FUNCIONARIO'
       ];
       const nomeCompleto = buscarValor(row, possiveisNomes);
       
@@ -667,12 +723,28 @@ router.post('/funcionarios/upload', upload.single('file'), async (req, res) => {
         console.log('=====================================');
       }
       const possiveisCadastrosEmpresa = [
-        'cadastro_empresa', 'Cadastro Empresa', 'CADASTRO EMPRESA', 'cadastro empresa', 'Cadastro empresa'
+        // Variações com underscore
+        'cadastro_empresa', 'Cadastro_Empresa', 'CADASTRO_EMPRESA',
+        // Variações com espaço
+        'cadastro empresa', 'Cadastro Empresa', 'CADASTRO EMPRESA', 'Cadastro empresa',
+        // Variações comuns
+        'Cadastro da Empresa', 'CADASTRO DA EMPRESA', 'cadastro da empresa',
+        'Código Empresa', 'CODIGO EMPRESA', 'código empresa', 'Codigo Empresa',
+        'Código da Empresa', 'CODIGO DA EMPRESA', 'código da empresa',
+        'Empresa', 'EMPRESA', 'empresa', 'ID Empresa', 'id empresa', 'ID_EMPRESA'
       ];
       const cadastroEmpresa = buscarValor(row, possiveisCadastrosEmpresa);
       
       const possiveisCadastrosClube = [
-        'cadastro_clube', 'Cadastro Clube', 'CADASTRO CLUBE', 'cadastro clube', 'Cadastro clube'
+        // Variações com underscore
+        'cadastro_clube', 'Cadastro_Clube', 'CADASTRO_CLUBE',
+        // Variações com espaço
+        'cadastro clube', 'Cadastro Clube', 'CADASTRO CLUBE', 'Cadastro clube',
+        // Variações comuns
+        'Cadastro do Clube', 'CADASTRO DO CLUBE', 'cadastro do clube',
+        'Código Clube', 'CODIGO CLUBE', 'código clube', 'Codigo Clube',
+        'Código do Clube', 'CODIGO DO CLUBE', 'código do clube',
+        'Clube', 'CLUBE', 'clube', 'ID Clube', 'id clube', 'ID_CLUBE'
       ];
       const cadastroClube = buscarValor(row, possiveisCadastrosClube);
 
@@ -694,18 +766,23 @@ router.post('/funcionarios/upload', upload.single('file'), async (req, res) => {
       // Validação rigorosa - não permitir null, undefined, ou strings vazias
       if (!nomeCompletoStr || nomeCompletoStr === '' || nomeCompletoStr === 'null' || nomeCompletoStr === 'undefined' || nomeCompletoStr === 'NaN') {
         const chavesEncontradas = Object.keys(row).join(', ');
-        const linhaNum = index + 2;
+        const linhaNum = index + 2; // +2 porque index começa em 0 e Excel começa em 1, mais 1 para o header
         const valoresLinha = Object.entries(row).map(([k, v]) => `${k}: ${v}`).join(', ');
         erros.push('Linha ' + linhaNum + ': Nome Empregado é obrigatório e não pode estar vazio. Chaves encontradas: ' + chavesEncontradas + '. Valores: ' + valoresLinha);
         console.error('Linha ' + linhaNum + ' - Nome não encontrado. Chaves disponíveis:', Object.keys(row));
-        console.error('Linha ' + linhaNum + ' - Valores da linha:', row);
+        console.error('Linha ' + linhaNum + ' - Valores da linha:', JSON.stringify(row, null, 2));
         console.error('Linha ' + linhaNum + ' - Nome retornado pela busca:', nomeCompleto);
+        console.error('Linha ' + linhaNum + ' - Tipo do nome:', typeof nomeCompleto);
         return;
       }
 
       if (!cadastroEmpresaStr || cadastroEmpresaStr === '' || cadastroEmpresaStr === 'null' || cadastroEmpresaStr === 'undefined') {
         const linhaNum2 = index + 2;
-        erros.push('Linha ' + linhaNum2 + ': Cadastro Empresa é obrigatório e não pode estar vazio');
+        const chavesEncontradas = Object.keys(row).join(', ');
+        const valoresLinha = Object.entries(row).map(([k, v]) => `${k}: ${v}`).join(', ');
+        erros.push('Linha ' + linhaNum2 + ': Cadastro Empresa é obrigatório e não pode estar vazio. Chaves encontradas: ' + chavesEncontradas + '. Valores: ' + valoresLinha);
+        console.error('Linha ' + linhaNum2 + ' - Cadastro Empresa não encontrado. Chaves disponíveis:', Object.keys(row));
+        console.error('Linha ' + linhaNum2 + ' - Valores da linha:', JSON.stringify(row, null, 2));
         return;
       }
 
