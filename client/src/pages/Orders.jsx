@@ -64,7 +64,7 @@ export default function Orders() {
       case 'aprovado':
         return 'Aprovado';
       case 'rejeitado':
-        return 'Sem estoque'; // Na tela do funcionário, "rejeitado" aparece como "Sem estoque"
+        return 'Indisponível'; // Na tela do funcionário, "rejeitado" aparece como "Indisponível"
       case 'verificando estoque':
         return 'Verificando Estoque';
       case 'aguardando aprovação de estoque':

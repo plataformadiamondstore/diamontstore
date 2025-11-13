@@ -318,7 +318,7 @@ export default function ManagerDashboard() {
       case 'aprovado':
         return 'Aprovado';
       case 'rejeitado':
-        return 'Sem estoque'; // Na tela do gestor, "rejeitado" aparece como "Sem estoque"
+        return 'Indisponível'; // Na tela do gestor, "rejeitado" aparece como "Indisponível"
       case 'verificando estoque':
         return 'Verificando Estoque';
       case 'aguardando aprovação de estoque':
@@ -565,7 +565,7 @@ export default function ManagerDashboard() {
                 className={`p-4 rounded-lg cursor-pointer transition-all hover:shadow-md ${filters.status === 'rejeitado' ? 'bg-red-100 border-2 border-red-400 shadow-md' : 'bg-red-50'}`}
                 onClick={() => setFilters({ ...filters, status: filters.status === 'rejeitado' ? '' : 'rejeitado' })}
               >
-                <p className="text-sm text-gray-600">Sem estoque</p>
+                <p className="text-sm text-gray-600">Indisponível</p>
                 <p className="text-2xl font-bold text-red-800">{pedidosRejeitados.length}</p>
               </div>
             </div>
