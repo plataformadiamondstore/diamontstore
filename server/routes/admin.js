@@ -587,7 +587,44 @@ router.post('/funcionarios/upload', upload.single('file'), async (req, res) => {
       blankrows: false // Não incluir linhas completamente vazias
     });
     
-    // Se não houver dados, tentar sem header (primeira linha como dados)
+    // Verificar se as chaves são numéricas (_1, _2, etc) - indica que não tem header
+    const primeiraLinha = data[0];
+    const chavesPrimeiraLinha = primeiraLinha ? Object.keys(primeiraLinha) : [];
+    const temHeaderValido = chavesPrimeiraLinha.length > 0 && 
+                            !chavesPrimeiraLinha.every(chave => /^_\d+$/.test(chave) || /^\d+$/.test(chave));
+    
+    console.log('Chaves da primeira linha:', chavesPrimeiraLinha);
+    console.log('Tem header válido:', temHeaderValido);
+    
+    // Se as chaves são _1, _2, etc, significa que não tem header - usar primeira linha como header
+    if (!temHeaderValido && data.length > 0) {
+      console.log('⚠️  Detectado: Planilha sem header válido. Usando primeira linha como header...');
+      
+      // Ler primeira linha como array para pegar os nomes das colunas
+      const primeiraLinhaArray = xlsx.utils.sheet_to_json(worksheet, {
+        header: 1,
+        defval: '',
+        blankrows: false,
+        range: 0 // Apenas primeira linha
+      });
+      
+      if (primeiraLinhaArray && primeiraLinhaArray.length > 0) {
+        const headers = primeiraLinhaArray[0];
+        console.log('Headers encontrados na primeira linha:', headers);
+        
+        // Ler novamente usando a primeira linha como header
+        data = xlsx.utils.sheet_to_json(worksheet, {
+          header: headers,
+          defval: '',
+          blankrows: false,
+          range: 1 // Começar da segunda linha (pular header)
+        });
+        
+        console.log('Dados relidos com header da primeira linha. Total:', data.length);
+      }
+    }
+    
+    // Se ainda não houver dados, tentar sem header (primeira linha como dados)
     if (!data || data.length === 0) {
       console.log('Tentando ler sem header...');
       data = xlsx.utils.sheet_to_json(worksheet, {
