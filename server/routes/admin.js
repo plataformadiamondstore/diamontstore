@@ -595,32 +595,60 @@ router.post('/funcionarios/upload', upload.single('file'), async (req, res) => {
     
     console.log('Chaves da primeira linha:', chavesPrimeiraLinha);
     console.log('Tem header válido:', temHeaderValido);
+    console.log('Primeira linha completa:', JSON.stringify(primeiraLinha, null, 2));
     
-    // Se as chaves são _1, _2, etc, significa que não tem header - usar primeira linha como header
+    // Se as chaves são _1, _2, etc, significa que não tem header - usar primeira linha do worksheet como header
     if (!temHeaderValido && data.length > 0) {
-      console.log('⚠️  Detectado: Planilha sem header válido. Usando primeira linha como header...');
+      console.log('⚠️  Detectado: Planilha sem header válido. Usando primeira linha do worksheet como header...');
       
-      // Ler primeira linha como array para pegar os nomes das colunas
-      const primeiraLinhaArray = xlsx.utils.sheet_to_json(worksheet, {
-        header: 1,
-        defval: '',
-        blankrows: false,
-        range: 0 // Apenas primeira linha
-      });
+      // Ler primeira linha do worksheet diretamente usando range
+      // Primeiro, obter o range do worksheet
+      const range = xlsx.utils.decode_range(worksheet['!ref'] || 'A1');
+      console.log('Range do worksheet:', range);
       
-      if (primeiraLinhaArray && primeiraLinhaArray.length > 0) {
-        const headers = primeiraLinhaArray[0];
-        console.log('Headers encontrados na primeira linha:', headers);
+      // Ler apenas a primeira linha (linha 0) como array
+      const primeiraLinhaRaw = [];
+      for (let col = range.s.c; col <= range.e.c; col++) {
+        const cellAddress = xlsx.utils.encode_cell({ r: 0, c: col });
+        const cell = worksheet[cellAddress];
+        const valor = cell ? (cell.v !== undefined ? cell.v : '') : '';
+        primeiraLinhaRaw.push(valor);
+      }
+      
+      console.log('Headers encontrados na primeira linha do worksheet:', primeiraLinhaRaw);
+      
+      // Se encontrou headers válidos, reler a planilha
+      if (primeiraLinhaRaw.length > 0 && primeiraLinhaRaw.some(h => h && String(h).trim() !== '')) {
+        // Limpar headers vazios e normalizar
+        const headers = primeiraLinhaRaw.map(h => {
+          const str = String(h || '').trim();
+          return str || null;
+        });
         
-        // Ler novamente usando a primeira linha como header
+        console.log('Headers normalizados:', headers);
+        
+        // Ler novamente usando a primeira linha como header, começando da linha 2 (índice 1)
+        // Criar um novo range começando da linha 2
+        const dataRange = xlsx.utils.encode_range({
+          s: { r: 1, c: range.s.c }, // Começar da linha 2 (índice 1)
+          e: { r: range.e.r, c: range.e.c }
+        });
+        
+        console.log('Lendo dados do range:', dataRange);
+        
         data = xlsx.utils.sheet_to_json(worksheet, {
           header: headers,
           defval: '',
           blankrows: false,
-          range: 1 // Começar da segunda linha (pular header)
+          range: dataRange
         });
         
         console.log('Dados relidos com header da primeira linha. Total:', data.length);
+        if (data.length > 0) {
+          console.log('Primeira linha de dados após correção:', JSON.stringify(data[0], null, 2));
+        }
+      } else {
+        console.log('⚠️  Não foi possível extrair headers válidos da primeira linha');
       }
     }
     
