@@ -24,6 +24,26 @@ export default function Products() {
   const [showCartPopup, setShowCartPopup] = useState(false);
   const [popupInterval, setPopupInterval] = useState(null);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Detectar se é mobile
+  useEffect(() => {
+    const checkMobile = () => {
+      const widthCheck = window.innerWidth < 768;
+      const userAgent = navigator.userAgent || navigator.vendor || '';
+      const isMobileUA = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(userAgent.toLowerCase());
+      const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+      setIsMobile(widthCheck || (isMobileUA && isTouchDevice));
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    window.addEventListener('orientationchange', checkMobile);
+    return () => {
+      window.removeEventListener('resize', checkMobile);
+      window.removeEventListener('orientationchange', checkMobile);
+    };
+  }, []);
 
   useEffect(() => {
     if (!user) {
@@ -164,8 +184,12 @@ export default function Products() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm sticky top-0 z-50">
+      {/* Header - FIXO no mobile */}
+      <header 
+        className={`bg-white shadow-sm z-50 ${
+          isMobile ? 'fixed top-0 left-0 right-0' : 'sticky top-0'
+        }`}
+      >
         <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-3 sm:py-4">
           <div className="flex justify-between items-center">
             {/* Logo */}
@@ -395,15 +419,46 @@ export default function Products() {
         </div>
       </header>
 
-      <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-4 sm:py-6 lg:py-8">
-        <Filters
-          categorias={categorias}
-          marcas={marcas}
-          filters={filters}
-          onFilterChange={handleFilterChange}
-        />
+      {/* Container principal - com scroll independente no mobile */}
+      <div 
+        className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8"
+        style={isMobile ? {
+          paddingTop: '140px', // Espaço para header fixo (~80px) + filtros fixos (~60px)
+          minHeight: 'calc(100vh - 140px)',
+          height: 'auto',
+          overflowY: 'auto',
+          overflowX: 'hidden',
+          WebkitOverflowScrolling: 'touch'
+        } : {
+          paddingTop: '1rem',
+          paddingBottom: '2rem'
+        }}
+      >
+        {/* Filters - FIXO no mobile, logo abaixo do header */}
+        <div
+          className={isMobile ? 'fixed top-[80px] left-0 right-0 z-40 bg-white shadow-sm' : ''}
+          style={isMobile ? {
+            position: 'fixed',
+            top: '80px',
+            left: 0,
+            right: 0,
+            zIndex: 40,
+            width: '100%'
+          } : {}}
+        >
+          <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8">
+            <Filters
+              categorias={categorias}
+              marcas={marcas}
+              filters={filters}
+              onFilterChange={handleFilterChange}
+            />
+          </div>
+        </div>
 
-        {loading ? (
+        {/* Container de produtos */}
+        <div style={isMobile ? {} : { paddingTop: '1rem' }}>
+          {loading ? (
           <div className="text-center py-12">
             <p className="text-gray-600">Carregando produtos...</p>
           </div>
@@ -446,6 +501,7 @@ export default function Products() {
             )}
           </>
         )}
+        </div>
       </div>
     </div>
   );

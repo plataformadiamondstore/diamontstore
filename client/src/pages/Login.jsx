@@ -13,6 +13,8 @@ export default function Login() {
   const [youtubeEmbedUrl, setYoutubeEmbedUrl] = useState('');
   const [containerHeight, setContainerHeight] = useState('auto');
   const loginCardRef = useRef(null);
+  const empresaInputRef = useRef(null);
+  const clubeInputRef = useRef(null);
   const { user, login, loading: authLoading } = useAuth();
   const navigate = useNavigate();
 
@@ -214,8 +216,46 @@ export default function Login() {
       console.log('Resposta recebida:', response.data);
 
       if (response.data.success) {
+        // FORÇAR fechamento do teclado virtual no mobile - método mais agressivo
+        // 1. Remover foco dos inputs
+        if (empresaInputRef.current) {
+          empresaInputRef.current.blur();
+          empresaInputRef.current.readOnly = true;
+        }
+        if (clubeInputRef.current) {
+          clubeInputRef.current.blur();
+          clubeInputRef.current.readOnly = true;
+        }
+        
+        // 2. Forçar blur em qualquer elemento ativo
+        const activeElement = document.activeElement;
+        if (activeElement && activeElement instanceof HTMLElement) {
+          activeElement.blur();
+          if (activeElement instanceof HTMLInputElement || activeElement instanceof HTMLTextAreaElement) {
+            activeElement.readOnly = true;
+            setTimeout(() => {
+              activeElement.readOnly = false;
+            }, 100);
+          }
+        }
+        
+        // 3. Focar em um elemento não-input para garantir que o teclado feche
+        const dummyButton = document.createElement('button');
+        dummyButton.style.position = 'absolute';
+        dummyButton.style.left = '-9999px';
+        dummyButton.style.opacity = '0';
+        document.body.appendChild(dummyButton);
+        dummyButton.focus();
+        setTimeout(() => {
+          document.body.removeChild(dummyButton);
+        }, 50);
+        
         login(response.data.funcionario);
-        navigate('/produtos');
+        
+        // 4. Pequeno delay antes de navegar para garantir que o teclado feche
+        setTimeout(() => {
+          navigate('/produtos');
+        }, 150);
       } else {
         setError('Resposta inválida do servidor');
         setLoading(false);
@@ -433,6 +473,7 @@ export default function Login() {
               Número da Empresa
             </label>
             <input
+              ref={empresaInputRef}
               type="text"
               value={empresaNumero}
               onChange={(e) => setEmpresaNumero(e.target.value)}
@@ -448,6 +489,7 @@ export default function Login() {
               Número do Clube
             </label>
             <input
+              ref={clubeInputRef}
               type="text"
               value={clubeNumero}
               onChange={(e) => setClubeNumero(e.target.value)}
