@@ -731,6 +731,23 @@ router.post('/funcionarios/upload', upload.single('file'), async (req, res) => {
       console.log('Primeiro registro de exemplo:', JSON.stringify(funcionariosValidos[0], null, 2));
     }
 
+    const empresaId = parseInt(req.body.empresa_id, 10);
+
+    // DELETAR funcionários anteriores da empresa ANTES de inserir os novos
+    console.log('Deletando funcionários anteriores da empresa ID:', empresaId);
+    const { error: deleteError } = await supabase
+      .from('funcionarios')
+      .delete()
+      .eq('empresa_id', empresaId);
+
+    if (deleteError) {
+      console.error('Erro ao deletar funcionários anteriores:', deleteError);
+      throw deleteError;
+    }
+
+    console.log('Funcionários anteriores deletados com sucesso. Inserindo novos funcionários...');
+
+    // Inserir os novos funcionários
     const { data: inserted, error } = await supabase
       .from('funcionarios')
       .insert(funcionariosValidos)
@@ -841,31 +858,21 @@ router.get('/funcionarios/uploads', async (req, res) => {
 
     // Para cada upload, buscar os funcionários relacionados
     const uploadsProcessados = await Promise.all(uploads.map(async (upload) => {
-      // Buscar funcionários deste upload (mesma empresa e mesma data aproximada)
-      // Como não temos um upload_id na tabela funcionarios, vamos buscar por empresa_id
-      // e data próxima (dentro de 1 hora do upload)
-      const dataUpload = new Date(upload.created_at);
-      const dataInicio = new Date(dataUpload.getTime() - 60 * 60 * 1000); // 1 hora antes
-      const dataFim = new Date(dataUpload.getTime() + 60 * 60 * 1000); // 1 hora depois
-
+      // Buscar TODOS os funcionários da empresa (já que agora deletamos e inserimos novamente)
+      // Buscar os mais recentes primeiro, limitado pela quantidade do upload
       const { data: funcionarios, error: funcError } = await supabase
         .from('funcionarios')
         .select('id, nome_completo, cadastro_empresa, cadastro_clube')
         .eq('empresa_id', upload.empresa_id)
-        .gte('created_at', dataInicio.toISOString())
-        .lte('created_at', dataFim.toISOString())
-        .limit(100); // Limitar a 100 para não sobrecarregar
+        .order('created_at', { ascending: false })
+        .limit(upload.quantidade_funcionarios || 100); // Limitar pela quantidade do upload
 
-      // Se não encontrar funcionários pela data, buscar todos da empresa (fallback)
-      let funcionariosList = funcionarios || [];
-      if (funcionariosList.length === 0) {
-        const { data: funcionariosFallback } = await supabase
-          .from('funcionarios')
-          .select('id, nome_completo, cadastro_empresa, cadastro_clube')
-          .eq('empresa_id', upload.empresa_id)
-          .limit(100);
-        funcionariosList = funcionariosFallback || [];
+      if (funcError) {
+        console.warn('Aviso: Erro ao buscar funcionários para upload', upload.id, ':', funcError.message);
       }
+
+      // Usar os funcionários encontrados ou array vazio
+      const funcionariosList = funcionarios || [];
 
       const uploadProcessado = {
         id: upload.id,

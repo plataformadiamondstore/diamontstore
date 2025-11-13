@@ -1324,14 +1324,17 @@ export default function AdminDashboard() {
       });
       
       if (response.data && response.data.success) {
-        alert(`Funcionários cadastrados com sucesso! Total: ${response.data.count || 0}`);
-      setExcelFile(null);
-      setSelectedEmpresa('');
+        alert(`Funcionários atualizados com sucesso! Total: ${response.data.count || 0}\n\nOs funcionários anteriores foram removidos e substituídos pelos novos da planilha.`);
+        setExcelFile(null);
+        setSelectedEmpresa('');
         // Resetar input de arquivo
         const fileInput = document.querySelector('input[type="file"]');
         if (fileInput) fileInput.value = '';
-        // Recarregar histórico de uploads
-        loadData();
+        // Aguardar um pouco para garantir que o backend processou tudo
+        setTimeout(() => {
+          // Recarregar histórico de uploads e dados
+          loadData();
+        }, 500);
       } else {
         throw new Error(response.data?.error || 'Erro desconhecido');
       }
