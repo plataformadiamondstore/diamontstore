@@ -580,34 +580,80 @@ router.post('/funcionarios/upload', upload.single('file'), async (req, res) => {
     const sheetName = workbook.SheetNames[0];
     const worksheet = workbook.Sheets[sheetName];
     
-    // SOLUÇÃO SIMPLES: Sempre ler a primeira linha como header e começar da segunda
-    // Ler primeira linha para pegar os headers
-    const range = xlsx.utils.decode_range(worksheet['!ref'] || 'A1');
-    const headers = [];
+    // SOLUÇÃO SIMPLES E DIRETA: Ler normalmente primeiro
+    let data = xlsx.utils.sheet_to_json(worksheet, {
+      defval: '',
+      blankrows: false
+    });
     
-    for (let col = range.s.c; col <= range.e.c; col++) {
-      const cellAddress = xlsx.utils.encode_cell({ r: 0, c: col });
-      const cell = worksheet[cellAddress];
-      const valor = cell ? (cell.v !== undefined ? String(cell.v).trim() : '') : '';
-      headers.push(valor || null);
+    console.log('Total de linhas lidas:', data.length);
+    if (data.length > 0) {
+      console.log('Chaves da primeira linha:', Object.keys(data[0]));
+      console.log('Primeira linha:', JSON.stringify(data[0], null, 2));
     }
     
-    console.log('Headers encontrados:', headers);
-    
-    // Ler dados começando da segunda linha (linha 1)
-    const dataRange = xlsx.utils.encode_range({
-      s: { r: 1, c: range.s.c }, // Começar da linha 2 (índice 1)
-      e: { r: range.e.r, c: range.e.c }
-    });
-    
-    let data = xlsx.utils.sheet_to_json(worksheet, {
-      header: headers,
-      defval: '',
-      blankrows: false,
-      range: dataRange
-    });
+    // Se as chaves são _1, _2, etc, significa que não tem header - corrigir
+    if (data.length > 0) {
+      const primeiraLinha = data[0];
+      const chaves = Object.keys(primeiraLinha);
+      const temHeaderValido = chaves.length > 0 && 
+                              !chaves.every(chave => /^_\d+$/.test(chave) || /^\d+$/.test(chave));
+      
+      console.log('Tem header válido:', temHeaderValido);
+      
+      if (!temHeaderValido) {
+        console.log('⚠️  Corrigindo: Headers inválidos detectados. Lendo primeira linha do worksheet...');
+        
+        // Ler primeira linha do worksheet diretamente
+        const range = xlsx.utils.decode_range(worksheet['!ref'] || 'A1');
+        const headers = [];
+        
+        for (let col = range.s.c; col <= range.e.c; col++) {
+          const cellAddress = xlsx.utils.encode_cell({ r: 0, c: col });
+          const cell = worksheet[cellAddress];
+          const valor = cell ? (cell.v !== undefined ? String(cell.v).trim() : '') : '';
+          headers.push(valor || null);
+        }
+        
+        console.log('Headers extraídos:', headers);
+        
+        // Se encontrou headers válidos, reler
+        if (headers.length > 0 && headers.some(h => h && h !== '')) {
+          // Criar novo worksheet começando da linha 2
+          // Usar sheet_to_json com header array, mas sem range (vai ler tudo e usar primeira linha como header)
+          // Melhor: ler como array e depois converter
+          const allData = xlsx.utils.sheet_to_json(worksheet, {
+            header: 1,
+            defval: '',
+            blankrows: false
+          });
+          
+          if (allData && allData.length > 1) {
+            // Primeira linha são os headers, resto são dados
+            const newHeaders = allData[0].map(h => String(h || '').trim() || null);
+            const rows = allData.slice(1); // Pular primeira linha
+            
+            // Converter para objetos usando os headers
+            data = rows.map(row => {
+              const obj = {};
+              newHeaders.forEach((header, idx) => {
+                if (header) {
+                  obj[header] = row[idx] !== undefined ? String(row[idx]).trim() : '';
+                }
+              });
+              return obj;
+            });
+            
+            console.log('Dados corrigidos. Total:', data.length);
+            if (data.length > 0) {
+              console.log('Primeira linha corrigida:', JSON.stringify(data[0], null, 2));
+            }
+          }
+        }
+      }
+    }
 
-    console.log('Total de linhas no Excel:', data.length);
+    console.log('Total de linhas no Excel após processamento:', data.length);
 
     if (!data || data.length === 0) {
       return res.status(400).json({ error: 'O arquivo Excel está vazio ou não contém dados válidos' });
