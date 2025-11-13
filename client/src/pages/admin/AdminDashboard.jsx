@@ -667,10 +667,20 @@ export default function AdminDashboard() {
         // Normalizar dados do pedido usando função robusta
         const { funcionario, empresa, clube } = normalizarDadosPedido(pedido);
         
+        // FILTRAR APENAS ITENS APROVADOS para impressão
+        const itensAprovados = pedido.pedido_itens.filter(item => 
+          item.status === 'Produto autorizado' || item.status === 'aprovado'
+        );
+        
+        // Só incluir pedido se tiver pelo menos um item aprovado
+        if (itensAprovados.length === 0) {
+          return;
+        }
+        
         const itensPedido = [];
         let quantidadeTotalPedido = 0;
         
-        pedido.pedido_itens.forEach(item => {
+        itensAprovados.forEach(item => {
           const sku = item.produtos?.sku || item.produtos?.codigo || item.sku || '-';
           const ean = item.produtos?.ean || item.ean || '-';
           const quantidade = item.quantidade || 0;
@@ -705,6 +715,12 @@ export default function AdminDashboard() {
         };
       }
     });
+
+    // Verificar se há pedidos com itens aprovados após o filtro
+    if (Object.keys(pedidosAgrupados).length === 0) {
+      alert('Nenhum pedido com itens aprovados para imprimir.');
+      return;
+    }
 
     // Ordenar pedidos por data (mais recente primeiro)
     const pedidosOrdenados = Object.values(pedidosAgrupados)
