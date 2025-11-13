@@ -580,98 +580,32 @@ router.post('/funcionarios/upload', upload.single('file'), async (req, res) => {
     const sheetName = workbook.SheetNames[0];
     const worksheet = workbook.Sheets[sheetName];
     
-    // Tentar ler com diferentes opções para suportar mais formatos
-    // Primeiro, tentar com header na primeira linha (padrão)
-    let data = xlsx.utils.sheet_to_json(worksheet, {
-      defval: '', // Valor padrão para células vazias
-      blankrows: false // Não incluir linhas completamente vazias
+    // SOLUÇÃO SIMPLES: Sempre ler a primeira linha como header e começar da segunda
+    // Ler primeira linha para pegar os headers
+    const range = xlsx.utils.decode_range(worksheet['!ref'] || 'A1');
+    const headers = [];
+    
+    for (let col = range.s.c; col <= range.e.c; col++) {
+      const cellAddress = xlsx.utils.encode_cell({ r: 0, c: col });
+      const cell = worksheet[cellAddress];
+      const valor = cell ? (cell.v !== undefined ? String(cell.v).trim() : '') : '';
+      headers.push(valor || null);
+    }
+    
+    console.log('Headers encontrados:', headers);
+    
+    // Ler dados começando da segunda linha (linha 1)
+    const dataRange = xlsx.utils.encode_range({
+      s: { r: 1, c: range.s.c }, // Começar da linha 2 (índice 1)
+      e: { r: range.e.r, c: range.e.c }
     });
     
-    // Verificar se as chaves são numéricas (_1, _2, etc) - indica que não tem header
-    const primeiraLinha = data[0];
-    const chavesPrimeiraLinha = primeiraLinha ? Object.keys(primeiraLinha) : [];
-    const temHeaderValido = chavesPrimeiraLinha.length > 0 && 
-                            !chavesPrimeiraLinha.every(chave => /^_\d+$/.test(chave) || /^\d+$/.test(chave));
-    
-    console.log('Chaves da primeira linha:', chavesPrimeiraLinha);
-    console.log('Tem header válido:', temHeaderValido);
-    console.log('Primeira linha completa:', JSON.stringify(primeiraLinha, null, 2));
-    
-    // Se as chaves são _1, _2, etc, significa que não tem header - usar primeira linha do worksheet como header
-    if (!temHeaderValido && data.length > 0) {
-      console.log('⚠️  Detectado: Planilha sem header válido. Usando primeira linha do worksheet como header...');
-      
-      // Ler primeira linha do worksheet diretamente usando range
-      // Primeiro, obter o range do worksheet
-      const range = xlsx.utils.decode_range(worksheet['!ref'] || 'A1');
-      console.log('Range do worksheet:', range);
-      
-      // Ler apenas a primeira linha (linha 0) como array
-      const primeiraLinhaRaw = [];
-      for (let col = range.s.c; col <= range.e.c; col++) {
-        const cellAddress = xlsx.utils.encode_cell({ r: 0, c: col });
-        const cell = worksheet[cellAddress];
-        const valor = cell ? (cell.v !== undefined ? cell.v : '') : '';
-        primeiraLinhaRaw.push(valor);
-      }
-      
-      console.log('Headers encontrados na primeira linha do worksheet:', primeiraLinhaRaw);
-      
-      // Se encontrou headers válidos, reler a planilha
-      if (primeiraLinhaRaw.length > 0 && primeiraLinhaRaw.some(h => h && String(h).trim() !== '')) {
-        // Limpar headers vazios e normalizar
-        const headers = primeiraLinhaRaw.map(h => {
-          const str = String(h || '').trim();
-          return str || null;
-        });
-        
-        console.log('Headers normalizados:', headers);
-        
-        // Ler novamente usando a primeira linha como header, começando da linha 2 (índice 1)
-        // Criar um novo range começando da linha 2
-        const dataRange = xlsx.utils.encode_range({
-          s: { r: 1, c: range.s.c }, // Começar da linha 2 (índice 1)
-          e: { r: range.e.r, c: range.e.c }
-        });
-        
-        console.log('Lendo dados do range:', dataRange);
-        
-        data = xlsx.utils.sheet_to_json(worksheet, {
-          header: headers,
-          defval: '',
-          blankrows: false,
-          range: dataRange
-        });
-        
-        console.log('Dados relidos com header da primeira linha. Total:', data.length);
-        if (data.length > 0) {
-          console.log('Primeira linha de dados após correção:', JSON.stringify(data[0], null, 2));
-        }
-      } else {
-        console.log('⚠️  Não foi possível extrair headers válidos da primeira linha');
-      }
-    }
-    
-    // Se ainda não houver dados, tentar sem header (primeira linha como dados)
-    if (!data || data.length === 0) {
-      console.log('Tentando ler sem header...');
-      data = xlsx.utils.sheet_to_json(worksheet, {
-        header: 1, // Usar primeira linha como dados
-        defval: '',
-        blankrows: false
-      });
-      
-      // Se ainda não houver dados, tentar com range
-      if (!data || data.length === 0) {
-        const range = xlsx.utils.decode_range(worksheet['!ref'] || 'A1');
-        console.log('Range do worksheet:', range);
-        data = xlsx.utils.sheet_to_json(worksheet, {
-          range: 0, // Começar da primeira linha
-          defval: '',
-          blankrows: false
-        });
-      }
-    }
+    let data = xlsx.utils.sheet_to_json(worksheet, {
+      header: headers,
+      defval: '',
+      blankrows: false,
+      range: dataRange
+    });
 
     console.log('Total de linhas no Excel:', data.length);
 
@@ -683,43 +617,34 @@ router.post('/funcionarios/upload', upload.single('file'), async (req, res) => {
     const funcionarios = [];
     const erros = [];
 
-    // Função auxiliar para buscar valor ignorando maiúsculas/minúsculas e espaços
+    // Função SIMPLES para buscar valor - busca exata primeiro, depois normalizada
     const buscarValor = (obj, possiveisChaves) => {
-      if (!obj || typeof obj !== 'object') {
-        return null;
-      }
+      if (!obj || typeof obj !== 'object') return null;
       
-      const chavesObj = Object.keys(obj || {});
+      const chavesObj = Object.keys(obj);
       
-      // Primeiro, tentar busca exata
-      for (const chavePossivel of possiveisChaves) {
-        if (obj[chavePossivel] !== undefined && obj[chavePossivel] !== null && obj[chavePossivel] !== '') {
-          const valor = obj[chavePossivel];
-          // Converter para string e remover espaços extras
-          const valorStr = String(valor).trim();
-          if (valorStr && valorStr !== 'null' && valorStr !== 'undefined') {
-            return valorStr;
+      // Busca exata
+      for (const chave of possiveisChaves) {
+        if (obj[chave] !== undefined && obj[chave] !== null && obj[chave] !== '') {
+          const valor = String(obj[chave]).trim();
+          if (valor && valor !== 'null' && valor !== 'undefined') {
+            return valor;
           }
         }
       }
       
-      // Depois, buscar ignorando case, espaços e caracteres especiais
-      for (const chavePossivel of possiveisChaves) {
-        const chaveEncontrada = chavesObj.find((k) => {
-          // Normalizar: remover espaços, caracteres especiais e converter para minúsculas
-          const kNormalized = k.toLowerCase().replace(/\s+/g, '').replace(/[_\-\.,;:]/g, '');
-          const chaveNormalized = chavePossivel.toLowerCase().replace(/\s+/g, '').replace(/[_\-\.,;:]/g, '');
-          return kNormalized === chaveNormalized;
+      // Busca normalizada (ignora case, espaços, underscore)
+      for (const chave of possiveisChaves) {
+        const chaveNorm = chave.toLowerCase().replace(/[\s_\-]/g, '');
+        const encontrada = chavesObj.find(k => {
+          const kNorm = k.toLowerCase().replace(/[\s_\-]/g, '');
+          return kNorm === chaveNorm;
         });
         
-        if (chaveEncontrada) {
-          const valor = obj[chaveEncontrada];
-          if (valor !== undefined && valor !== null && valor !== '') {
-            // Converter para string e remover espaços extras
-            const valorStr = String(valor).trim();
-            if (valorStr && valorStr !== 'null' && valorStr !== 'undefined') {
-              return valorStr;
-            }
+        if (encontrada && obj[encontrada] !== undefined && obj[encontrada] !== null && obj[encontrada] !== '') {
+          const valor = String(obj[encontrada]).trim();
+          if (valor && valor !== 'null' && valor !== 'undefined') {
+            return valor;
           }
         }
       }
@@ -755,26 +680,12 @@ router.post('/funcionarios/upload', upload.single('file'), async (req, res) => {
     console.log('Linhas válidas após filtro:', linhasValidas.length, 'de', data.length);
 
     linhasValidas.forEach(function(row, index) {
-      // Suportar múltiplas variações de nomes de colunas (incluindo nome_empregado da planilha)
-      // Adicionar variações comuns em planilhas brasileiras e da Schaeffler
+      // Buscar nome - SIMPLES: nome_empregado, nome completo, nome
       const possiveisNomes = [
-        // Variações com underscore
-        'nome_empregado', 'Nome_Empregado', 'NOME_EMPREGADO', 'nome_empregado', 'Nome_Empregado',
-        'nome_completo', 'Nome_Completo', 'NOME_COMPLETO', 'nome_completo', 'Nome_Completo',
-        // Variações com espaço
-        'Nome Empregado', 'NOME EMPREGADO', 'nome empregado', 'Nome empregado',
-        'Nome Completo', 'NOME COMPLETO', 'nome completo', 'Nome completo',
-        // Variações simples
-        'nome', 'Nome', 'NOME', 'empregado', 'Empregado', 'EMPREGADO',
-        'funcionario', 'Funcionario', 'FUNCIONARIO', 'funcionário', 'Funcionário', 'FUNCIONÁRIO',
-        // Variações comuns em planilhas corporativas
-        'Nome do Empregado', 'NOME DO EMPREGADO', 'nome do empregado',
-        'Nome do Funcionário', 'NOME DO FUNCIONÁRIO', 'nome do funcionário',
-        'Nome Funcionário', 'NOME FUNCIONÁRIO', 'nome funcionário',
-        'Colaborador', 'colaborador', 'COLABORADOR', 'Nome Colaborador',
-        // Variações com acentos e sem acentos
-        'Nome Empregado', 'Nome Empregado', 'nome empregado',
-        'Funcionario', 'funcionario', 'FUNCIONARIO'
+        'nome_empregado', 'Nome_Empregado', 'NOME_EMPREGADO',
+        'Nome Empregado', 'NOME EMPREGADO', 'nome empregado',
+        'nome_completo', 'Nome Completo', 'NOME COMPLETO',
+        'nome', 'Nome', 'NOME'
       ];
       const nomeCompleto = buscarValor(row, possiveisNomes);
       
@@ -787,29 +698,17 @@ router.post('/funcionarios/upload', upload.single('file'), async (req, res) => {
         console.log('Tipo do nome:', typeof nomeCompleto);
         console.log('=====================================');
       }
+      // Buscar cadastro empresa - SIMPLES: cadastro_empresa, cadastro empresa
       const possiveisCadastrosEmpresa = [
-        // Variações com underscore
         'cadastro_empresa', 'Cadastro_Empresa', 'CADASTRO_EMPRESA',
-        // Variações com espaço
-        'cadastro empresa', 'Cadastro Empresa', 'CADASTRO EMPRESA', 'Cadastro empresa',
-        // Variações comuns
-        'Cadastro da Empresa', 'CADASTRO DA EMPRESA', 'cadastro da empresa',
-        'Código Empresa', 'CODIGO EMPRESA', 'código empresa', 'Codigo Empresa',
-        'Código da Empresa', 'CODIGO DA EMPRESA', 'código da empresa',
-        'Empresa', 'EMPRESA', 'empresa', 'ID Empresa', 'id empresa', 'ID_EMPRESA'
+        'Cadastro Empresa', 'CADASTRO EMPRESA', 'cadastro empresa'
       ];
       const cadastroEmpresa = buscarValor(row, possiveisCadastrosEmpresa);
       
+      // Buscar cadastro clube - SIMPLES: cadastro_clube, cadastro clube (opcional)
       const possiveisCadastrosClube = [
-        // Variações com underscore
         'cadastro_clube', 'Cadastro_Clube', 'CADASTRO_CLUBE',
-        // Variações com espaço
-        'cadastro clube', 'Cadastro Clube', 'CADASTRO CLUBE', 'Cadastro clube',
-        // Variações comuns
-        'Cadastro do Clube', 'CADASTRO DO CLUBE', 'cadastro do clube',
-        'Código Clube', 'CODIGO CLUBE', 'código clube', 'Codigo Clube',
-        'Código do Clube', 'CODIGO DO CLUBE', 'código do clube',
-        'Clube', 'CLUBE', 'clube', 'ID Clube', 'id clube', 'ID_CLUBE'
+        'Cadastro Clube', 'CADASTRO CLUBE', 'cadastro clube'
       ];
       const cadastroClube = buscarValor(row, possiveisCadastrosClube);
 
