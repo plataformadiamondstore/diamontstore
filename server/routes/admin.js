@@ -130,9 +130,16 @@ router.post('/empresas', async (req, res) => {
     }
     
     // Usar cadastro_empresa apenas se foi fornecido e não está vazio
+    // Se não fornecido, gerar um código único baseado no nome e timestamp
     let cadastroEmpresaFinal = null;
     if (cadastro_empresa && cadastro_empresa.trim() !== '') {
       cadastroEmpresaFinal = cadastro_empresa.trim();
+    } else {
+      // Gerar código único quando não fornecido
+      // Usar nome normalizado + timestamp para garantir unicidade
+      const nomeNormalizado = nome.trim().toLowerCase().replace(/\s+/g, '_').substring(0, 20);
+      const timestamp = Date.now().toString().slice(-6); // Últimos 6 dígitos do timestamp
+      cadastroEmpresaFinal = `${nomeNormalizado}_${timestamp}`;
     }
     
     // Inserir empresa
