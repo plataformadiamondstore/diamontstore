@@ -108,8 +108,31 @@ export default function AdminDashboard() {
   const [bannerDesktop, setBannerDesktop] = useState(null);
   const [bannerMobileLoading, setBannerMobileLoading] = useState(false);
   const [bannerDesktopLoading, setBannerDesktopLoading] = useState(false);
-  const [bannerMobilePreview, setBannerMobilePreview] = useState('/banners/banner_mobile.jpeg');
-  const [bannerDesktopPreview, setBannerDesktopPreview] = useState('/banners/banner_site.jpeg');
+  
+  // Função helper para obter URL do banner (busca do backend em produção)
+  const getBannerUrl = (filename, timestamp = null) => {
+    if (typeof window !== 'undefined' && window.location) {
+      const hostname = window.location.hostname;
+      const isProduction = hostname !== 'localhost' && 
+                           hostname !== '127.0.0.1' && 
+                           !hostname.includes('localhost');
+      
+      if (isProduction) {
+        // Em produção, buscar do backend
+        const apiBase = 'https://api.slothempresas.com.br';
+        const ts = timestamp || Date.now();
+        return `${apiBase}/banners/${filename}?t=${ts}`;
+      }
+    }
+    
+    // Em desenvolvimento, buscar localmente
+    const ts = timestamp || Date.now();
+    return `/banners/${filename}?t=${ts}`;
+  };
+
+  // Inicializar previews dos banners
+  const [bannerMobilePreview, setBannerMobilePreview] = useState(() => getBannerUrl('banner_mobile.jpeg'));
+  const [bannerDesktopPreview, setBannerDesktopPreview] = useState(() => getBannerUrl('banner_site.jpeg'));
 
   // Navegação por teclado no visualizador de imagens
   useEffect(() => {
@@ -213,8 +236,8 @@ export default function AdminDashboard() {
         }
         // Carregar previews dos banners com timestamp para evitar cache
         const timestamp = Date.now();
-        setBannerMobilePreview(`/banners/banner_mobile.jpeg?t=${timestamp}`);
-        setBannerDesktopPreview(`/banners/banner_site.jpeg?t=${timestamp}`);
+        setBannerMobilePreview(getBannerUrl('banner_mobile.jpeg', timestamp));
+        setBannerDesktopPreview(getBannerUrl('banner_site.jpeg', timestamp));
       } else if (activeTab === 'cadastros') {
         // Carregar produtos (incluindo desabilitados), categorias, marcas e tamanhos
         const [prodRes, catRes, marRes, tamRes] = await Promise.all([
@@ -3663,7 +3686,7 @@ export default function AdminDashboard() {
                         
                         // Depois atualizar com o novo timestamp
                         setTimeout(() => {
-                          setBannerMobilePreview(`/banners/banner_mobile.jpeg?t=${timestamp}`);
+                          setBannerMobilePreview(getBannerUrl('banner_mobile.jpeg', timestamp));
                         }, 100);
                         
                         setBannerMobile(null);
@@ -3781,7 +3804,7 @@ export default function AdminDashboard() {
                         
                         // Depois atualizar com o novo timestamp
                         setTimeout(() => {
-                          setBannerDesktopPreview(`/banners/banner_site.jpeg?t=${timestamp}`);
+                          setBannerDesktopPreview(getBannerUrl('banner_site.jpeg', timestamp));
                         }, 100);
                         
                         setBannerDesktop(null);

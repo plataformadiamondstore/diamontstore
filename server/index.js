@@ -51,6 +51,11 @@ const uploadsPathRoot = path.join(__dirname, '..', 'uploads');
 app.use('/uploads', express.static(uploadsPathServer));
 app.use('/uploads', express.static(uploadsPathRoot));
 
+// Servir banners estáticos do backend para o Netlify acessar
+const bannersPath = path.join(__dirname, '../client/public/banners/');
+app.use('/banners', express.static(bannersPath));
+console.log('📸 Servindo banners de:', bannersPath);
+
 // Supabase Client
 export const supabase = createClient(
   process.env.SUPABASE_URL,

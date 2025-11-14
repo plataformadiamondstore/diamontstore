@@ -306,9 +306,28 @@ export default function Login() {
   
   // Determinar qual banner usar - DESKTOP USA banner_site.jpeg, MOBILE USA banner_mobile.jpeg
   // Usar bannerTimestamp para forçar reload quando necessário
+  // CORREÇÃO: Em produção, buscar do backend (api.slothempresas.com.br/banners/)
+  const getBannerUrl = (filename) => {
+    if (typeof window !== 'undefined' && window.location) {
+      const hostname = window.location.hostname;
+      const isProduction = hostname !== 'localhost' && 
+                           hostname !== '127.0.0.1' && 
+                           !hostname.includes('localhost');
+      
+      if (isProduction) {
+        // Em produção, buscar do backend
+        const apiBase = 'https://api.slothempresas.com.br';
+        return `${apiBase}/banners/${filename}?t=${bannerTimestamp}`;
+      }
+    }
+    
+    // Em desenvolvimento, buscar localmente
+    return `/banners/${filename}?t=${bannerTimestamp}`;
+  };
+
   const bannerSrc = isMobile 
-    ? `/banners/banner_mobile.jpeg?t=${bannerTimestamp}`
-    : `/banners/banner_site.jpeg?t=${bannerTimestamp}`;
+    ? getBannerUrl('banner_mobile.jpeg')
+    : getBannerUrl('banner_site.jpeg');
   
   // Debug: Log do estado do YouTube
   useEffect(() => {
