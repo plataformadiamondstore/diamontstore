@@ -2927,22 +2927,15 @@ router.get('/indicadores', async (req, res) => {
       const data = new Date(log.created_at);
       
       // Converter para horário do Brasil (UTC-3)
-      // Criar uma data no timezone do Brasil usando Intl.DateTimeFormat
-      const formatter = new Intl.DateTimeFormat('pt-BR', {
-        timeZone: 'America/Sao_Paulo',
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false
-      });
+      // Subtrair 3 horas do UTC para obter horário do Brasil
+      const offsetBrasil = -3 * 60 * 60 * 1000; // -3 horas em milissegundos
+      const dataBrasil = new Date(data.getTime() + offsetBrasil);
       
-      const partes = formatter.formatToParts(data);
-      const ano = partes.find(p => p.type === 'year').value;
-      const mes = partes.find(p => p.type === 'month').value;
-      const dia = partes.find(p => p.type === 'day').value;
-      const hora = parseInt(partes.find(p => p.type === 'hour').value, 10);
+      // Extrair ano, mês, dia e hora no horário do Brasil
+      const ano = dataBrasil.getUTCFullYear();
+      const mes = String(dataBrasil.getUTCMonth() + 1).padStart(2, '0');
+      const dia = String(dataBrasil.getUTCDate()).padStart(2, '0');
+      const hora = dataBrasil.getUTCHours();
       
       const diaFormatado = `${ano}-${mes}-${dia}`; // YYYY-MM-DD
 
