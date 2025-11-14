@@ -421,7 +421,7 @@ export default function Login() {
               isMobile ? 'w-full max-w-full px-3 mx-auto' : 'w-2/3 max-w-2xl flex-shrink-0'
             }`}
             style={{
-              ...(isMobile && { marginTop: '63vh' }),
+              ...(isMobile && { marginTop: '62vh' }),
               minHeight: '200px', // Garantir altura mínima
               visibility: 'visible', // Forçar visibilidade
               display: 'block' // Forçar display
