@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
@@ -26,6 +26,7 @@ export default function Products() {
   const [popupInterval, setPopupInterval] = useState(null);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const pageAccessLoggedRef = useRef(false);
 
   // Detectar se é mobile
   useEffect(() => {
@@ -57,10 +58,11 @@ export default function Products() {
 
   // Registrar acesso à página de produtos apenas uma vez quando o usuário acessa
   useEffect(() => {
-    if (user?.id && user?.empresa_id) {
+    if (user?.id && user?.empresa_id && !pageAccessLoggedRef.current) {
+      pageAccessLoggedRef.current = true;
       logPageAccess(user.id, user.empresa_id, '/produtos');
     }
-  }, [user?.id]); // Apenas quando o usuário muda, não a cada mudança de filtros
+  }, [user?.id, user?.empresa_id]); // Apenas quando o usuário muda, não a cada mudança de filtros
 
   // Carregar contador do carrinho separadamente (só quando user mudar)
   useEffect(() => {
