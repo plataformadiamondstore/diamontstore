@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Fragment } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
@@ -139,6 +139,7 @@ export default function AdminDashboard() {
     empresa_id: '',
     dispositivo: ''
   });
+  const [logsExpandidos, setLogsExpandidos] = useState(new Set());
   
   // Função helper para obter URL do banner (busca do backend em produção)
   const getBannerUrl = (filename, timestamp = null) => {
@@ -3755,31 +3756,164 @@ export default function AdminDashboard() {
                 <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
                   <h3 className="text-lg font-semibold mb-4">Logs Detalhados</h3>
                   <div className="overflow-x-auto max-h-96 overflow-y-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50 sticky top-0">
-                        <tr>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Data/Hora</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Funcionário</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Empresa</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tipo</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Dispositivo</th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
-                        {indicadores.logs_detalhados?.slice(0, 100).map((log) => {
-                          const { data, hora } = formatarDataHoraBrasil(log.created_at);
-                          return (
-                            <tr key={log.id}>
-                              <td className="px-4 py-3 text-sm text-gray-900">{data} {hora}</td>
-                              <td className="px-4 py-3 text-sm text-gray-600">{log.funcionarios?.nome_completo || 'N/A'}</td>
-                              <td className="px-4 py-3 text-sm text-gray-600">{log.empresas?.nome || 'N/A'}</td>
-                              <td className="px-4 py-3 text-sm text-gray-600">{log.tipo_evento}</td>
-                              <td className="px-4 py-3 text-sm text-gray-600">{log.dispositivo}</td>
+                    {(() => {
+                      // Agrupar logs por funcionário e dia
+                      const logsAgrupados = {};
+                      indicadores.logs_detalhados?.slice(0, 100).forEach((log) => {
+                        const { data } = formatarDataHoraBrasil(log.created_at);
+                        const funcionarioId = log.funcionario_id;
+                        const funcionarioNome = log.funcionarios?.nome_completo || `Funcionário ${funcionarioId}`;
+                        const empresaNome = log.empresas?.nome || 'N/A';
+                        const chave = `${funcionarioId}_${data}`;
+                        
+                        if (!logsAgrupados[chave]) {
+                          logsAgrupados[chave] = {
+                            funcionarioId,
+                            funcionarioNome,
+                            empresaNome,
+                            data,
+                            logs: []
+                          };
+                        }
+                        logsAgrupados[chave].logs.push(log);
+                      });
+
+                      // Ordenar grupos por data (mais recente primeiro) e depois por funcionário
+                      const gruposOrdenados = Object.values(logsAgrupados).sort((a, b) => {
+                        const dataA = new Date(a.data.split('/').reverse().join('-'));
+                        const dataB = new Date(b.data.split('/').reverse().join('-'));
+                        if (dataB.getTime() !== dataA.getTime()) {
+                          return dataB.getTime() - dataA.getTime();
+                        }
+                        return a.funcionarioNome.localeCompare(b.funcionarioNome);
+                      });
+
+                      return (
+                        <table className="min-w-full divide-y divide-gray-200">
+                          <thead className="bg-gray-50 sticky top-0">
+                            <tr>
+                              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase w-8"></th>
+                              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Data</th>
+                              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Funcionário</th>
+                              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Empresa</th>
+                              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total de Logs</th>
                             </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
+                          </thead>
+                          <tbody className="bg-white divide-y divide-gray-200">
+                            {gruposOrdenados.map((grupo) => {
+                              const chave = `${grupo.funcionarioId}_${grupo.data}`;
+                              const isExpanded = logsExpandidos.has(chave);
+                              const totalLogs = grupo.logs.length;
+                              
+                              // Contar tipos de eventos
+                              const tiposEventos = {};
+                              grupo.logs.forEach(log => {
+                                tiposEventos[log.tipo_evento] = (tiposEventos[log.tipo_evento] || 0) + 1;
+                              });
+                              const tiposEventosStr = Object.entries(tiposEventos)
+                                .map(([tipo, count]) => `${tipo} (${count})`)
+                                .join(', ');
+
+                              return (
+                                <Fragment key={chave}>
+                                  <tr 
+                                    className="cursor-pointer hover:bg-gray-50 transition-colors"
+                                    onClick={() => {
+                                      const novosExpandidos = new Set(logsExpandidos);
+                                      if (isExpanded) {
+                                        novosExpandidos.delete(chave);
+                                      } else {
+                                        novosExpandidos.add(chave);
+                                      }
+                                      setLogsExpandidos(novosExpandidos);
+                                    }}
+                                  >
+                                    <td className="px-4 py-3">
+                                      <svg 
+                                        className={`w-4 h-4 text-gray-500 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
+                                        fill="none" 
+                                        stroke="currentColor" 
+                                        viewBox="0 0 24 24"
+                                      >
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                      </svg>
+                                    </td>
+                                    <td className="px-4 py-3 text-sm font-medium text-gray-900">{grupo.data}</td>
+                                    <td className="px-4 py-3 text-sm text-gray-600">{grupo.funcionarioNome}</td>
+                                    <td className="px-4 py-3 text-sm text-gray-600">{grupo.empresaNome}</td>
+                                    <td className="px-4 py-3 text-sm text-gray-600">
+                                      <span className="font-semibold">{totalLogs}</span> {totalLogs === 1 ? 'log' : 'logs'}
+                                      {isExpanded && (
+                                        <div className="text-xs text-gray-500 mt-1">{tiposEventosStr}</div>
+                                      )}
+                                    </td>
+                                  </tr>
+                                  {isExpanded && (
+                                    <>
+                                      <tr>
+                                        <td colSpan="5" className="px-4 py-2 bg-gray-50">
+                                          <table className="min-w-full">
+                                            <thead>
+                                              <tr>
+                                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Hora</th>
+                                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Tipo</th>
+                                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Dispositivo</th>
+                                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Página/Produto</th>
+                                              </tr>
+                                            </thead>
+                                            <tbody>
+                                              {grupo.logs
+                                                .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+                                                .map((log) => {
+                                                  const { hora } = formatarDataHoraBrasil(log.created_at);
+                                                  return (
+                                                    <tr key={log.id} className="bg-white">
+                                                      <td className="px-4 py-2 text-sm text-gray-900">{hora}</td>
+                                                      <td className="px-4 py-2 text-sm text-gray-600">
+                                                        <span className={`px-2 py-1 rounded text-xs ${
+                                                          log.tipo_evento === 'login' ? 'bg-green-100 text-green-800' :
+                                                          log.tipo_evento === 'acesso_pagina' ? 'bg-blue-100 text-blue-800' :
+                                                          'bg-purple-100 text-purple-800'
+                                                        }`}>
+                                                          {log.tipo_evento}
+                                                        </span>
+                                                      </td>
+                                                      <td className="px-4 py-2 text-sm text-gray-600">
+                                                        <span className={`px-2 py-1 rounded text-xs ${
+                                                          log.dispositivo === 'mobile' ? 'bg-orange-100 text-orange-800' :
+                                                          'bg-indigo-100 text-indigo-800'
+                                                        }`}>
+                                                          {log.dispositivo}
+                                                        </span>
+                                                      </td>
+                                                      <td className="px-4 py-2 text-sm text-gray-600">
+                                                        {log.pagina ? (
+                                                          <span className="text-blue-600">{log.pagina}</span>
+                                                        ) : log.produto_id ? (
+                                                          <span className="text-purple-600">
+                                                            Produto ID: {log.produto_id}
+                                                            {log.produtos?.nome && ` (${log.produtos.nome})`}
+                                                          </span>
+                                                        ) : (
+                                                          <span className="text-gray-400">-</span>
+                                                        )}
+                                                      </td>
+                                                    </tr>
+                                                  );
+                                                })}
+                                            </tbody>
+                                          </table>
+                                        </td>
+                                      </tr>
+                                    </>
+                                  )}
+                                </Fragment>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      );
+                    })()}
                   </div>
                 </div>
               </>
