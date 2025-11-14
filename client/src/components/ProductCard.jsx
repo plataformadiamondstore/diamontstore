@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react';
+import { useAuth } from '../context/AuthContext';
+import { logProductAccess } from '../utils/logAccess';
 
 export default function ProductCard({ product, onAddToCart }) {
+  const { user } = useAuth();
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [variacaoSelecionada, setVariacaoSelecionada] = useState('');
   
@@ -9,6 +12,13 @@ export default function ProductCard({ product, onAddToCart }) {
     setVariacaoSelecionada('');
     setCurrentImageIndex(0);
   }, [product.id]);
+
+  // Registrar acesso ao produto quando ele é visualizado
+  useEffect(() => {
+    if (user?.id && user?.empresa_id && product?.id) {
+      logProductAccess(user.id, user.empresa_id, product.id);
+    }
+  }, [product.id, user?.id, user?.empresa_id]);
   
   // Usar imagens da tabela produto_imagens ou fallback para imagens antigas (JSONB)
   const images = product.produto_imagens && product.produto_imagens.length > 0

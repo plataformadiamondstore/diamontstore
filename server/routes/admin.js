@@ -687,72 +687,9 @@ router.post('/funcionarios/upload', upload.single('file'), async (req, res) => {
               
               headers.forEach((header, colIdx) => {
                 if (header && header !== '' && header !== null) {
-                  let valor = '';
-                  
-                  // CORREÇÃO ESPECIAL PARA COLUNA C (nome_empregado) - LER DIRETAMENTE DA CÉLULA
-                  if (colIdx === 2 && header.toLowerCase().includes('nome')) {
-                    // Linha do Excel = rowIdx + 2 (rowIdx 0 = linha 2 do Excel, que é índice 1)
-                    const excelRowIndex = rowIdx + 1; // Índice da linha no Excel (1 = linha 2)
-                    const cellAddress = xlsx.utils.encode_cell({ r: excelRowIndex, c: 2 });
-                    const cellName = `C${excelRowIndex + 1}`;
-                    
-                    // Tentar múltiplas formas de acessar a célula
-                    const cell = worksheet[cellAddress] || worksheet[cellName] || worksheet[cellName.toLowerCase()];
-                    
-                    if (cell) {
-                      // Tentar 1: cell.v (valor bruto)
-                      if (cell.v !== undefined && cell.v !== null) {
-                        valor = String(cell.v).trim();
-                      }
-                      // Tentar 2: cell.w (valor formatado)
-                      if ((!valor || valor === '') && cell.w !== undefined && cell.w !== null) {
-                        valor = String(cell.w).trim();
-                      }
-                      // Tentar 3: Se t = "s" e v é número, é índice para shared strings
-                      if ((!valor || valor === '') && cell.t === 's' && typeof cell.v === 'number') {
-                        if (workbook.Strings && workbook.Strings[cell.v]) {
-                          const sharedString = workbook.Strings[cell.v];
-                          if (typeof sharedString === 'string') {
-                            valor = sharedString.trim();
-                          } else if (typeof sharedString === 'object' && sharedString.t) {
-                            valor = String(sharedString.t).trim();
-                          }
-                        }
-                      }
-                      // Tentar 4: cell.h (HTML)
-                      if ((!valor || valor === '') && cell.h !== undefined && cell.h !== null) {
-                        const htmlText = String(cell.h).replace(/<[^>]*>/g, '').trim();
-                        if (htmlText) valor = htmlText;
-                      }
-                      // Tentar 5: cell.r (rich text)
-                      if ((!valor || valor === '') && cell.r && Array.isArray(cell.r)) {
-                        const richText = cell.r.map(item => item.t || item.v || '').join('').trim();
-                        if (richText) valor = richText;
-                      }
-                      
-                      // Log para primeiras 3 linhas
-                      if (rowIdx < 3) {
-                        console.log(`Linha ${excelRowIndex + 1} (array index ${rowIdx}), Coluna C (${header}):`);
-                        console.log(`  cellAddress=${cellAddress}, cellName=${cellName}`);
-                        console.log(`  cell existe: ${cell ? 'SIM' : 'NÃO'}`);
-                        if (cell) {
-                          console.log(`  cell.t=${cell.t}, cell.v=${cell.v}, cell.w=${cell.w}`);
-                          if (cell.t === 's' && typeof cell.v === 'number') {
-                            console.log(`  Shared string index: ${cell.v}, valor: ${workbook.Strings?.[cell.v] || 'NÃO ENCONTRADO'}`);
-                          }
-                        }
-                        console.log(`  valor final: "${valor || 'VAZIO'}"`);
-                      }
-                    }
-                  }
-                  
-                  // Se ainda vazio, usar valor do array como fallback
-                  if (!valor || valor === '') {
-                    valor = row[colIdx] !== undefined && row[colIdx] !== null 
-                      ? String(row[colIdx]).trim() 
-                      : '';
-                  }
-                  
+                  const valor = row[colIdx] !== undefined && row[colIdx] !== null 
+                    ? String(row[colIdx]).trim() 
+                    : '';
                   obj[header] = valor;
                 }
               });
@@ -2846,6 +2783,203 @@ router.post('/marketing/banner', uploadBanner.single('banner'), async (req, res)
   } catch (error) {
     console.error('❌ Erro ao fazer upload do banner:', error);
     console.error('Stack:', error.stack);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ========== INDICADORES - REGISTRAR LOG DE ACESSO ==========
+router.post('/indicadores/log', async (req, res) => {
+  try {
+    const { funcionario_id, empresa_id, tipo_evento, pagina, produto_id, dispositivo, user_agent, ip_address, sessao_id } = req.body;
+
+    if (!funcionario_id || !empresa_id || !tipo_evento || !dispositivo) {
+      return res.status(400).json({ error: 'funcionario_id, empresa_id, tipo_evento e dispositivo são obrigatórios' });
+    }
+
+    const { data, error } = await supabase
+      .from('acessos_logs')
+      .insert({
+        funcionario_id: parseInt(funcionario_id, 10),
+        empresa_id: parseInt(empresa_id, 10),
+        tipo_evento: tipo_evento, // 'login', 'acesso_pagina', 'acesso_produto'
+        pagina: pagina || null,
+        produto_id: produto_id ? parseInt(produto_id, 10) : null,
+        dispositivo: dispositivo, // 'mobile' ou 'web'
+        user_agent: user_agent || null,
+        ip_address: ip_address || null,
+        sessao_id: sessao_id || null
+      })
+      .select();
+
+    if (error) {
+      console.error('Erro ao registrar log de acesso:', error);
+      return res.status(500).json({ error: error.message });
+    }
+
+    res.json({ success: true, log: data[0] });
+  } catch (error) {
+    console.error('Erro completo ao registrar log:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ========== INDICADORES - BUSCAR INDICADORES ==========
+router.get('/indicadores', async (req, res) => {
+  try {
+    const { data_inicio, data_fim, empresa_id, dispositivo } = req.query;
+
+    // Construir query base
+    let query = supabase
+      .from('acessos_logs')
+      .select(`
+        *,
+        funcionarios(id, nome_completo, cadastro_empresa, cadastro_clube),
+        empresas(id, nome),
+        produtos(id, nome, sku)
+      `);
+
+    // Aplicar filtros
+    if (data_inicio) {
+      query = query.gte('created_at', data_inicio);
+    }
+    if (data_fim) {
+      // Adicionar 1 dia para incluir o dia final completo
+      const dataFimCompleta = new Date(data_fim);
+      dataFimCompleta.setHours(23, 59, 59, 999);
+      query = query.lte('created_at', dataFimCompleta.toISOString());
+    }
+    if (empresa_id) {
+      query = query.eq('empresa_id', parseInt(empresa_id, 10));
+    }
+    if (dispositivo) {
+      query = query.eq('dispositivo', dispositivo);
+    }
+
+    // Ordenar por data mais recente
+    query = query.order('created_at', { ascending: false });
+
+    const { data: logs, error } = await query;
+
+    if (error) {
+      console.error('Erro ao buscar logs:', error);
+      return res.status(500).json({ error: error.message });
+    }
+
+    // Processar dados para indicadores
+    const indicadores = {
+      total_acessos: logs.length,
+      acessos_por_dia: {},
+      acessos_por_hora: {},
+      acessos_mobile: 0,
+      acessos_web: 0,
+      acessos_por_empresa: {},
+      acessos_por_funcionario: {},
+      produtos_mais_acessados: {},
+      horarios_pico: {},
+      logins: 0,
+      acessos_paginas: 0,
+      acessos_produtos: 0,
+      sessoes: new Set(),
+      logs_detalhados: logs
+    };
+
+    logs.forEach(log => {
+      const data = new Date(log.created_at);
+      const dia = data.toISOString().split('T')[0]; // YYYY-MM-DD
+      const hora = data.getHours();
+
+      // Acessos por dia
+      indicadores.acessos_por_dia[dia] = (indicadores.acessos_por_dia[dia] || 0) + 1;
+
+      // Acessos por hora
+      indicadores.acessos_por_hora[hora] = (indicadores.acessos_por_hora[hora] || 0) + 1;
+
+      // Mobile vs Web
+      if (log.dispositivo === 'mobile') {
+        indicadores.acessos_mobile++;
+      } else if (log.dispositivo === 'web') {
+        indicadores.acessos_web++;
+      }
+
+      // Acessos por empresa
+      const empresaNome = log.empresas?.nome || `Empresa ${log.empresa_id}`;
+      indicadores.acessos_por_empresa[empresaNome] = (indicadores.acessos_por_empresa[empresaNome] || 0) + 1;
+
+      // Acessos por funcionário
+      const funcionarioNome = log.funcionarios?.nome_completo || `Funcionário ${log.funcionario_id}`;
+      indicadores.acessos_por_funcionario[funcionarioNome] = (indicadores.acessos_por_funcionario[funcionarioNome] || 0) + 1;
+
+      // Produtos mais acessados
+      if (log.tipo_evento === 'acesso_produto' && log.produto_id) {
+        const produtoNome = log.produtos?.nome || `Produto ${log.produto_id}`;
+        indicadores.produtos_mais_acessados[produtoNome] = (indicadores.produtos_mais_acessados[produtoNome] || 0) + 1;
+      }
+
+      // Horários de pico (por hora do dia)
+      indicadores.horarios_pico[hora] = (indicadores.horarios_pico[hora] || 0) + 1;
+
+      // Contar tipos de eventos
+      if (log.tipo_evento === 'login') {
+        indicadores.logins++;
+      } else if (log.tipo_evento === 'acesso_pagina') {
+        indicadores.acessos_paginas++;
+      } else if (log.tipo_evento === 'acesso_produto') {
+        indicadores.acessos_produtos++;
+      }
+
+      // Sessões únicas
+      if (log.sessao_id) {
+        indicadores.sessoes.add(log.sessao_id);
+      }
+    });
+
+    // Converter Set para número
+    indicadores.total_sessoes = indicadores.sessoes.size;
+    delete indicadores.sessoes;
+
+    // Calcular taxa de retorno (funcionários que fizeram login mais de uma vez)
+    const loginsPorFuncionario = {};
+    logs.filter(log => log.tipo_evento === 'login').forEach(log => {
+      const funcId = log.funcionario_id;
+      loginsPorFuncionario[funcId] = (loginsPorFuncionario[funcId] || 0) + 1;
+    });
+    const funcionariosRetorno = Object.values(loginsPorFuncionario).filter(count => count > 1).length;
+    indicadores.taxa_retorno = indicadores.logins > 0 
+      ? ((funcionariosRetorno / indicadores.logins) * 100).toFixed(2) 
+      : 0;
+
+    // Calcular tempo médio de sessão (aproximado - diferença entre primeiro e último acesso da sessão)
+    const sessoesTempo = {};
+    logs.forEach(log => {
+      if (log.sessao_id) {
+        if (!sessoesTempo[log.sessao_id]) {
+          sessoesTempo[log.sessao_id] = {
+            primeiro: new Date(log.created_at),
+            ultimo: new Date(log.created_at)
+          };
+        } else {
+          const dataLog = new Date(log.created_at);
+          if (dataLog < sessoesTempo[log.sessao_id].primeiro) {
+            sessoesTempo[log.sessao_id].primeiro = dataLog;
+          }
+          if (dataLog > sessoesTempo[log.sessao_id].ultimo) {
+            sessoesTempo[log.sessao_id].ultimo = dataLog;
+          }
+        }
+      }
+    });
+
+    const temposSessao = Object.values(sessoesTempo).map(sessao => {
+      return (sessao.ultimo - sessao.primeiro) / 1000 / 60; // em minutos
+    });
+
+    indicadores.tempo_medio_sessao = temposSessao.length > 0
+      ? (temposSessao.reduce((a, b) => a + b, 0) / temposSessao.length).toFixed(2)
+      : 0;
+
+    res.json({ success: true, indicadores });
+  } catch (error) {
+    console.error('Erro completo ao buscar indicadores:', error);
     res.status(500).json({ error: error.message });
   }
 });

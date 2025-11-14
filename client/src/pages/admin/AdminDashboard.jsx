@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
 import Logo from '../../components/Logo';
+import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 // Função helper para formatar data/hora com timezone do Brasil
 const formatarDataHoraBrasil = (timestamp) => {
@@ -129,6 +130,16 @@ export default function AdminDashboard() {
   const [bannerMobileLoading, setBannerMobileLoading] = useState(false);
   const [bannerDesktopLoading, setBannerDesktopLoading] = useState(false);
   
+  // Estados para Indicadores
+  const [indicadores, setIndicadores] = useState(null);
+  const [indicadoresLoading, setIndicadoresLoading] = useState(false);
+  const [filtrosIndicadores, setFiltrosIndicadores] = useState({
+    data_inicio: '',
+    data_fim: '',
+    empresa_id: '',
+    dispositivo: ''
+  });
+  
   // Função helper para obter URL do banner (busca do backend em produção)
   const getBannerUrl = (filename, timestamp = null) => {
     if (typeof window !== 'undefined' && window.location) {
@@ -245,6 +256,9 @@ export default function AdminDashboard() {
           console.error('Erro ao carregar pedidos:', error);
           setPedidos([]);
         }
+      } else if (activeTab === 'indicadores') {
+        // Carregar indicadores
+        loadIndicadores();
       } else if (activeTab === 'marketing') {
         // Carregar link do YouTube
         try {
@@ -298,6 +312,33 @@ export default function AdminDashboard() {
       console.error('Erro ao carregar dados:', error);
     }
   };
+
+  // Função para carregar indicadores
+  const loadIndicadores = async () => {
+    setIndicadoresLoading(true);
+    try {
+      const params = {};
+      if (filtrosIndicadores.data_inicio) params.data_inicio = filtrosIndicadores.data_inicio;
+      if (filtrosIndicadores.data_fim) params.data_fim = filtrosIndicadores.data_fim;
+      if (filtrosIndicadores.empresa_id) params.empresa_id = filtrosIndicadores.empresa_id;
+      if (filtrosIndicadores.dispositivo) params.dispositivo = filtrosIndicadores.dispositivo;
+
+      const response = await api.get('/admin/indicadores', { params });
+      setIndicadores(response.data?.indicadores || null);
+    } catch (error) {
+      console.error('Erro ao carregar indicadores:', error);
+      setIndicadores(null);
+    } finally {
+      setIndicadoresLoading(false);
+    }
+  };
+
+  // Carregar indicadores quando filtros mudarem
+  useEffect(() => {
+    if (activeTab === 'indicadores') {
+      loadIndicadores();
+    }
+  }, [filtrosIndicadores]);
 
   const handleCreateEmpresa = async (e) => {
     e.preventDefault();
@@ -1443,7 +1484,7 @@ export default function AdminDashboard() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2">
         <div className="bg-white rounded-lg shadow-sm mb-6">
           <div className="flex border-b">
-            {['dashboard', 'empresas', 'funcionarios', 'cadastros', 'produtos', 'pedidos', 'marketing'].map((tab) => {
+            {['dashboard', 'empresas', 'funcionarios', 'cadastros', 'produtos', 'pedidos', 'indicadores', 'marketing'].map((tab) => {
               const tabNames = {
                 'dashboard': 'Dashboard',
                 'empresas': 'Cadastro Empresas',
@@ -1451,6 +1492,7 @@ export default function AdminDashboard() {
                 'cadastros': 'Cadastro Produto',
                 'produtos': 'Produtos',
                 'pedidos': 'Pedidos',
+                'indicadores': 'Indicadores',
                 'marketing': 'Marketing'
               };
               return (
@@ -3465,6 +3507,287 @@ export default function AdminDashboard() {
                 </div>
               )}
             </div>
+          </div>
+        )}
+
+        {activeTab === 'indicadores' && (
+          <div className="space-y-6">
+            <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
+              <h2 className="text-xl font-bold mb-4">Indicadores de Acesso</h2>
+              
+              {/* Filtros */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Data Início
+                  </label>
+                  <input
+                    type="date"
+                    value={filtrosIndicadores.data_inicio}
+                    onChange={(e) => setFiltrosIndicadores(prev => ({ ...prev, data_inicio: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary-purple focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Data Fim
+                  </label>
+                  <input
+                    type="date"
+                    value={filtrosIndicadores.data_fim}
+                    onChange={(e) => setFiltrosIndicadores(prev => ({ ...prev, data_fim: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary-purple focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Empresa
+                  </label>
+                  <select
+                    value={filtrosIndicadores.empresa_id}
+                    onChange={(e) => setFiltrosIndicadores(prev => ({ ...prev, empresa_id: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary-purple focus:border-transparent"
+                  >
+                    <option value="">Todas</option>
+                    {empresas.map(emp => (
+                      <option key={emp.id} value={emp.id}>{emp.nome}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Dispositivo
+                  </label>
+                  <select
+                    value={filtrosIndicadores.dispositivo}
+                    onChange={(e) => setFiltrosIndicadores(prev => ({ ...prev, dispositivo: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary-purple focus:border-transparent"
+                  >
+                    <option value="">Todos</option>
+                    <option value="mobile">Mobile</option>
+                    <option value="web">Web</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {indicadoresLoading ? (
+              <div className="text-center py-12">
+                <p className="text-gray-600">Carregando indicadores...</p>
+              </div>
+            ) : indicadores ? (
+              <>
+                {/* Cards com números resumidos */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
+                    <h3 className="text-sm font-medium text-gray-600 mb-2">Total de Acessos</h3>
+                    <p className="text-3xl font-bold text-primary-purple">{indicadores.total_acessos || 0}</p>
+                  </div>
+                  <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
+                    <h3 className="text-sm font-medium text-gray-600 mb-2">Logins</h3>
+                    <p className="text-3xl font-bold text-green-600">{indicadores.logins || 0}</p>
+                  </div>
+                  <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
+                    <h3 className="text-sm font-medium text-gray-600 mb-2">Acessos Mobile</h3>
+                    <p className="text-3xl font-bold text-blue-600">{indicadores.acessos_mobile || 0}</p>
+                  </div>
+                  <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
+                    <h3 className="text-sm font-medium text-gray-600 mb-2">Acessos Web</h3>
+                    <p className="text-3xl font-bold text-purple-600">{indicadores.acessos_web || 0}</p>
+                  </div>
+                  <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
+                    <h3 className="text-sm font-medium text-gray-600 mb-2">Taxa de Retorno</h3>
+                    <p className="text-3xl font-bold text-orange-600">{indicadores.taxa_retorno || 0}%</p>
+                  </div>
+                  <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
+                    <h3 className="text-sm font-medium text-gray-600 mb-2">Tempo Médio Sessão</h3>
+                    <p className="text-3xl font-bold text-indigo-600">{indicadores.tempo_medio_sessao || 0} min</p>
+                  </div>
+                  <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
+                    <h3 className="text-sm font-medium text-gray-600 mb-2">Total de Sessões</h3>
+                    <p className="text-3xl font-bold text-pink-600">{indicadores.total_sessoes || 0}</p>
+                  </div>
+                  <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
+                    <h3 className="text-sm font-medium text-gray-600 mb-2">Acessos a Produtos</h3>
+                    <p className="text-3xl font-bold text-teal-600">{indicadores.acessos_produtos || 0}</p>
+                  </div>
+                </div>
+
+                {/* Gráficos */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Gráfico de Acessos por Dia */}
+                  <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
+                    <h3 className="text-lg font-semibold mb-4">Acessos por Dia</h3>
+                    <ResponsiveContainer width="100%" height={300}>
+                      <LineChart data={Object.entries(indicadores.acessos_por_dia || {}).map(([dia, count]) => ({
+                        dia: new Date(dia).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
+                        acessos: count
+                      }))}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="dia" />
+                        <YAxis />
+                        <Tooltip />
+                        <Legend />
+                        <Line type="monotone" dataKey="acessos" stroke="#6B46C1" strokeWidth={2} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+
+                  {/* Gráfico de Acessos por Hora */}
+                  <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
+                    <h3 className="text-lg font-semibold mb-4">Acessos por Hora</h3>
+                    <ResponsiveContainer width="100%" height={300}>
+                      <BarChart data={Array.from({ length: 24 }, (_, i) => ({
+                        hora: `${i}h`,
+                        acessos: indicadores.acessos_por_hora?.[i] || 0
+                      }))}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="hora" />
+                        <YAxis />
+                        <Tooltip />
+                        <Legend />
+                        <Bar dataKey="acessos" fill="#6B46C1" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+
+                  {/* Gráfico Mobile vs Web */}
+                  <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
+                    <h3 className="text-lg font-semibold mb-4">Mobile vs Web</h3>
+                    <ResponsiveContainer width="100%" height={300}>
+                      <PieChart>
+                        <Pie
+                          data={[
+                            { name: 'Mobile', value: indicadores.acessos_mobile || 0 },
+                            { name: 'Web', value: indicadores.acessos_web || 0 }
+                          ]}
+                          cx="50%"
+                          cy="50%"
+                          labelLine={false}
+                          label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                          outerRadius={80}
+                          fill="#8884d8"
+                          dataKey="value"
+                        >
+                          <Cell fill="#3B82F6" />
+                          <Cell fill="#6B46C1" />
+                        </Pie>
+                        <Tooltip />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+
+                  {/* Gráfico de Horários de Pico */}
+                  <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
+                    <h3 className="text-lg font-semibold mb-4">Horários de Pico</h3>
+                    <ResponsiveContainer width="100%" height={300}>
+                      <BarChart data={Object.entries(indicadores.horarios_pico || {}).map(([hora, count]) => ({
+                        hora: `${hora}h`,
+                        acessos: count
+                      })).sort((a, b) => parseInt(a.hora) - parseInt(b.hora))}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="hora" />
+                        <YAxis />
+                        <Tooltip />
+                        <Legend />
+                        <Bar dataKey="acessos" fill="#10B981" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+
+                {/* Tabelas Detalhadas */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Acessos por Empresa */}
+                  <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
+                    <h3 className="text-lg font-semibold mb-4">Acessos por Empresa</h3>
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Empresa</th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Acessos</th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {Object.entries(indicadores.acessos_por_empresa || {})
+                            .sort((a, b) => b[1] - a[1])
+                            .slice(0, 10)
+                            .map(([empresa, count]) => (
+                              <tr key={empresa}>
+                                <td className="px-4 py-3 text-sm text-gray-900">{empresa}</td>
+                                <td className="px-4 py-3 text-sm text-gray-600">{count}</td>
+                              </tr>
+                            ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  {/* Produtos Mais Acessados */}
+                  <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
+                    <h3 className="text-lg font-semibold mb-4">Produtos Mais Acessados</h3>
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Produto</th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Acessos</th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {Object.entries(indicadores.produtos_mais_acessados || {})
+                            .sort((a, b) => b[1] - a[1])
+                            .slice(0, 10)
+                            .map(([produto, count]) => (
+                              <tr key={produto}>
+                                <td className="px-4 py-3 text-sm text-gray-900">{produto}</td>
+                                <td className="px-4 py-3 text-sm text-gray-600">{count}</td>
+                              </tr>
+                            ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Tabela de Logs Detalhados */}
+                <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
+                  <h3 className="text-lg font-semibold mb-4">Logs Detalhados</h3>
+                  <div className="overflow-x-auto max-h-96 overflow-y-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50 sticky top-0">
+                        <tr>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Data/Hora</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Funcionário</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Empresa</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tipo</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Dispositivo</th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {indicadores.logs_detalhados?.slice(0, 100).map((log) => {
+                          const { data, hora } = formatarDataHoraBrasil(log.created_at);
+                          return (
+                            <tr key={log.id}>
+                              <td className="px-4 py-3 text-sm text-gray-900">{data} {hora}</td>
+                              <td className="px-4 py-3 text-sm text-gray-600">{log.funcionarios?.nome_completo || 'N/A'}</td>
+                              <td className="px-4 py-3 text-sm text-gray-600">{log.empresas?.nome || 'N/A'}</td>
+                              <td className="px-4 py-3 text-sm text-gray-600">{log.tipo_evento}</td>
+                              <td className="px-4 py-3 text-sm text-gray-600">{log.dispositivo}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="text-center py-12">
+                <p className="text-gray-600">Nenhum dado disponível para o período selecionado.</p>
+              </div>
+            )}
           </div>
         )}
 

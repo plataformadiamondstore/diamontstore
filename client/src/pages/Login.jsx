@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
+import { logLogin } from '../utils/logAccess';
 
 export default function Login() {
   const [empresaNumero, setEmpresaNumero] = useState('');
@@ -252,6 +253,11 @@ export default function Login() {
         }, 50);
         
         login(response.data.funcionario);
+        
+        // Registrar log de login
+        if (response.data.funcionario?.id && response.data.funcionario?.empresa_id) {
+          logLogin(response.data.funcionario.id, response.data.funcionario.empresa_id);
+        }
         
         // 4. Pequeno delay antes de navegar para garantir que o teclado feche
         setTimeout(() => {

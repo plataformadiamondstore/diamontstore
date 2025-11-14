@@ -5,6 +5,7 @@ import api from '../services/api';
 import ProductCard from '../components/ProductCard';
 import Filters from '../components/Filters';
 import Logo from '../components/Logo';
+import { logPageAccess } from '../utils/logAccess';
 
 export default function Products() {
   const { user, logout } = useAuth();
@@ -52,6 +53,11 @@ export default function Products() {
     }
     loadProducts();
     loadFilters();
+    
+    // Registrar acesso à página de produtos
+    if (user.id && user.empresa_id) {
+      logPageAccess(user.id, user.empresa_id, '/produtos');
+    }
   }, [user, page, filters]);
 
   // Carregar contador do carrinho separadamente (só quando user mudar)
