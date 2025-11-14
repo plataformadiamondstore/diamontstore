@@ -687,9 +687,72 @@ router.post('/funcionarios/upload', upload.single('file'), async (req, res) => {
               
               headers.forEach((header, colIdx) => {
                 if (header && header !== '' && header !== null) {
-                  const valor = row[colIdx] !== undefined && row[colIdx] !== null 
-                    ? String(row[colIdx]).trim() 
-                    : '';
+                  let valor = '';
+                  
+                  // CORREÇÃO ESPECIAL PARA COLUNA C (nome_empregado) - LER DIRETAMENTE DA CÉLULA
+                  if (colIdx === 2 && header.toLowerCase().includes('nome')) {
+                    // Linha do Excel = rowIdx + 2 (rowIdx 0 = linha 2 do Excel, que é índice 1)
+                    const excelRowIndex = rowIdx + 1; // Índice da linha no Excel (1 = linha 2)
+                    const cellAddress = xlsx.utils.encode_cell({ r: excelRowIndex, c: 2 });
+                    const cellName = `C${excelRowIndex + 1}`;
+                    
+                    // Tentar múltiplas formas de acessar a célula
+                    const cell = worksheet[cellAddress] || worksheet[cellName] || worksheet[cellName.toLowerCase()];
+                    
+                    if (cell) {
+                      // Tentar 1: cell.v (valor bruto)
+                      if (cell.v !== undefined && cell.v !== null) {
+                        valor = String(cell.v).trim();
+                      }
+                      // Tentar 2: cell.w (valor formatado)
+                      if ((!valor || valor === '') && cell.w !== undefined && cell.w !== null) {
+                        valor = String(cell.w).trim();
+                      }
+                      // Tentar 3: Se t = "s" e v é número, é índice para shared strings
+                      if ((!valor || valor === '') && cell.t === 's' && typeof cell.v === 'number') {
+                        if (workbook.Strings && workbook.Strings[cell.v]) {
+                          const sharedString = workbook.Strings[cell.v];
+                          if (typeof sharedString === 'string') {
+                            valor = sharedString.trim();
+                          } else if (typeof sharedString === 'object' && sharedString.t) {
+                            valor = String(sharedString.t).trim();
+                          }
+                        }
+                      }
+                      // Tentar 4: cell.h (HTML)
+                      if ((!valor || valor === '') && cell.h !== undefined && cell.h !== null) {
+                        const htmlText = String(cell.h).replace(/<[^>]*>/g, '').trim();
+                        if (htmlText) valor = htmlText;
+                      }
+                      // Tentar 5: cell.r (rich text)
+                      if ((!valor || valor === '') && cell.r && Array.isArray(cell.r)) {
+                        const richText = cell.r.map(item => item.t || item.v || '').join('').trim();
+                        if (richText) valor = richText;
+                      }
+                      
+                      // Log para primeiras 3 linhas
+                      if (rowIdx < 3) {
+                        console.log(`Linha ${excelRowIndex + 1} (array index ${rowIdx}), Coluna C (${header}):`);
+                        console.log(`  cellAddress=${cellAddress}, cellName=${cellName}`);
+                        console.log(`  cell existe: ${cell ? 'SIM' : 'NÃO'}`);
+                        if (cell) {
+                          console.log(`  cell.t=${cell.t}, cell.v=${cell.v}, cell.w=${cell.w}`);
+                          if (cell.t === 's' && typeof cell.v === 'number') {
+                            console.log(`  Shared string index: ${cell.v}, valor: ${workbook.Strings?.[cell.v] || 'NÃO ENCONTRADO'}`);
+                          }
+                        }
+                        console.log(`  valor final: "${valor || 'VAZIO'}"`);
+                      }
+                    }
+                  }
+                  
+                  // Se ainda vazio, usar valor do array como fallback
+                  if (!valor || valor === '') {
+                    valor = row[colIdx] !== undefined && row[colIdx] !== null 
+                      ? String(row[colIdx]).trim() 
+                      : '';
+                  }
+                  
                   obj[header] = valor;
                 }
               });
