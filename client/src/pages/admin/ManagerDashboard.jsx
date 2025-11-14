@@ -4,6 +4,26 @@ import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
 import Logo from '../../components/Logo';
 
+// Função helper para formatar data/hora com timezone do Brasil
+const formatarDataHoraBrasil = (timestamp) => {
+  if (!timestamp) return { data: 'N/A', hora: 'N/A' };
+  
+  const dataHora = new Date(timestamp);
+  const dataFormatada = dataHora.toLocaleDateString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    timeZone: 'America/Sao_Paulo'
+  });
+  const horaFormatada = dataHora.toLocaleTimeString('pt-BR', {
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: 'America/Sao_Paulo'
+  });
+  
+  return { data: dataFormatada, hora: horaFormatada };
+};
+
 export default function ManagerDashboard() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
@@ -165,16 +185,7 @@ export default function ManagerDashboard() {
     printFrame.style.border = 'none';
     document.body.appendChild(printFrame);
 
-    const data = new Date(pedido.created_at);
-    const dataFormatada = data.toLocaleDateString('pt-BR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric'
-    });
-    const horaFormatada = data.toLocaleTimeString('pt-BR', {
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+    const { data: dataFormatada, hora: horaFormatada } = formatarDataHoraBrasil(pedido.created_at);
 
     // FILTRAR APENAS ITENS APROVADOS para impressão
     const itensAprovados = pedido.pedido_itens?.filter(item => 
@@ -640,7 +651,10 @@ export default function ManagerDashboard() {
                           </p>
                         )}
                         <p className="text-sm text-gray-600">
-                          {new Date(pedido.created_at).toLocaleString('pt-BR')}
+                          {(() => {
+                            const { data, hora } = formatarDataHoraBrasil(pedido.created_at);
+                            return `${data} às ${hora}`;
+                          })()}
                         </p>
                       </div>
                       <div className="flex items-center gap-4" onClick={(e) => e.stopPropagation()}>

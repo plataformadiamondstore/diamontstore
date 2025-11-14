@@ -4,6 +4,19 @@ import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 import Logo from '../components/Logo';
 
+// Função helper para formatar data com timezone do Brasil
+const formatarDataBrasil = (timestamp) => {
+  if (!timestamp) return 'N/A';
+  
+  const dataHora = new Date(timestamp);
+  return dataHora.toLocaleDateString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    timeZone: 'America/Sao_Paulo'
+  });
+};
+
 export default function Orders() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -155,7 +168,7 @@ export default function Orders() {
                         </svg>
                       </div>
                       <p className="text-sm text-gray-600">
-                        {new Date(order.created_at).toLocaleDateString('pt-BR')}
+                        {formatarDataBrasil(order.created_at)}
                       </p>
                     </div>
                   </div>

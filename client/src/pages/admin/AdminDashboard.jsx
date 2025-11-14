@@ -4,6 +4,26 @@ import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
 import Logo from '../../components/Logo';
 
+// Função helper para formatar data/hora com timezone do Brasil
+const formatarDataHoraBrasil = (timestamp) => {
+  if (!timestamp) return { data: 'N/A', hora: 'N/A' };
+  
+  const dataHora = new Date(timestamp);
+  const dataFormatada = dataHora.toLocaleDateString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    timeZone: 'America/Sao_Paulo'
+  });
+  const horaFormatada = dataHora.toLocaleTimeString('pt-BR', {
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: 'America/Sao_Paulo'
+  });
+  
+  return { data: dataFormatada, hora: horaFormatada };
+};
+
 export default function AdminDashboard() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
@@ -829,16 +849,7 @@ export default function AdminDashboard() {
     `;
 
     pedidosOrdenados.forEach(pedido => {
-      const data = new Date(pedido.data);
-      const dataFormatada = data.toLocaleDateString('pt-BR', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric'
-      });
-      const horaFormatada = data.toLocaleTimeString('pt-BR', {
-        hour: '2-digit',
-        minute: '2-digit'
-      });
+      const { data: dataFormatada, hora: horaFormatada } = formatarDataHoraBrasil(pedido.data);
 
       content += `
         <div class="pedido">
@@ -2999,16 +3010,7 @@ export default function AdminDashboard() {
                   {historicoUploads.map((upload) => {
                     if (!upload) return null;
                     
-                    const dataHora = upload.created_at ? new Date(upload.created_at) : null;
-                    const dataFormatada = dataHora ? dataHora.toLocaleDateString('pt-BR', {
-                      day: '2-digit',
-                      month: '2-digit',
-                      year: 'numeric'
-                    }) : 'N/A';
-                    const horaFormatada = dataHora ? dataHora.toLocaleTimeString('pt-BR', {
-                      hour: '2-digit',
-                      minute: '2-digit'
-                    }) : 'N/A';
+                    const { data: dataFormatada, hora: horaFormatada } = formatarDataHoraBrasil(upload.created_at);
                     const mostrarFuncionarios = uploadsExpandidos[upload.id] || false;
                     
                     return (
@@ -4011,16 +4013,7 @@ export default function AdminDashboard() {
                               // Normalizar dados do pedido usando função robusta
                               const { funcionario, empresa, clube } = normalizarDadosPedido(pedido);
                               
-                              const dataHora = new Date(pedido.created_at);
-                              const dataFormatada = dataHora.toLocaleDateString('pt-BR', {
-                                day: '2-digit',
-                                month: '2-digit',
-                                year: 'numeric'
-                              });
-                              const horaFormatada = dataHora.toLocaleTimeString('pt-BR', {
-                                hour: '2-digit',
-                                minute: '2-digit'
-                              });
+                              const { data: dataFormatada, hora: horaFormatada } = formatarDataHoraBrasil(pedido.created_at);
                               
                               const totalPedido = pedido.pedido_itens?.reduce((sum, item) => {
                                 return sum + (item.preco * item.quantidade);
