@@ -43,6 +43,9 @@ const limparLogsAntigos = () => {
   });
 };
 
+// Cache em memória para evitar múltiplas chamadas simultâneas (mais rápido que sessionStorage)
+const processingLogs = new Set();
+
 // Registrar log de acesso
 export const logAccess = async (funcionarioId, empresaId, tipoEvento, pagina = null, produtoId = null) => {
   try {
@@ -59,9 +62,8 @@ export const logAccess = async (funcionarioId, empresaId, tipoEvento, pagina = n
     const logKey = getLogKey(funcionarioId, tipoEvento, pagina, produtoId);
     const alreadyLogged = sessionStorage.getItem(logKey);
     
-    // Verificar também se há uma requisição em andamento (usando uma chave diferente)
-    const logKeyProcessing = `${logKey}_processing`;
-    const isProcessing = sessionStorage.getItem(logKeyProcessing);
+    // Verificar também se há uma requisição em andamento (usando Set em memória - mais rápido)
+    const isProcessingInMemory = processingLogs.has(logKey);
     
     // Para login, sempre permitir registrar (não bloquear por sessionStorage)
     // Pois cada login deve ser contabilizado
@@ -76,9 +78,9 @@ export const logAccess = async (funcionarioId, empresaId, tipoEvento, pagina = n
       return;
     }
     
-    // Se já está processando, não registrar novamente
-    if (isProcessing && tipoEvento !== 'login') {
-      console.log('⏭️ Log já está sendo processado, ignorando:', {
+    // Se já está processando (em memória), não registrar novamente
+    if (isProcessingInMemory && tipoEvento !== 'login') {
+      console.log('⏭️ Log já está sendo processado (em memória), ignorando:', {
         logKey,
         tipoEvento,
         produtoId,
@@ -91,6 +93,7 @@ export const logAccess = async (funcionarioId, empresaId, tipoEvento, pagina = n
     if (tipoEvento === 'login' && alreadyLogged) {
       console.log('🔄 Limpando log de login anterior para permitir novo registro:', logKey);
       sessionStorage.removeItem(logKey);
+      processingLogs.delete(logKey);
     }
 
     console.log('✅ Registrando novo log:', {
@@ -103,11 +106,11 @@ export const logAccess = async (funcionarioId, empresaId, tipoEvento, pagina = n
     });
 
     // IMPORTANTE: Marcar como registrado e processando ANTES da chamada assíncrona
-    // Isso previne condição de corrida quando múltiplos componentes chamam simultaneamente
+    // Usar tanto sessionStorage quanto Set em memória para máxima proteção
     const timestamp = Date.now().toString();
     sessionStorage.setItem(logKey, timestamp);
     if (tipoEvento !== 'login') {
-      sessionStorage.setItem(logKeyProcessing, timestamp);
+      processingLogs.add(logKey); // Adicionar ao Set em memória
     }
 
     const dispositivo = detectDevice();
@@ -133,7 +136,7 @@ export const logAccess = async (funcionarioId, empresaId, tipoEvento, pagina = n
 
     // Remover flag de processamento imediatamente após sucesso
     if (tipoEvento !== 'login') {
-      sessionStorage.removeItem(logKeyProcessing);
+      processingLogs.delete(logKey); // Remover do Set em memória
     }
 
     // Limpar logs antigos (mais de 30 minutos)
@@ -151,9 +154,8 @@ export const logAccess = async (funcionarioId, empresaId, tipoEvento, pagina = n
   } catch (error) {
     // Se houver erro, remover a marcação para permitir nova tentativa
     const logKey = getLogKey(funcionarioId, tipoEvento, pagina, produtoId);
-    const logKeyProcessing = `${logKey}_processing`;
     sessionStorage.removeItem(logKey);
-    sessionStorage.removeItem(logKeyProcessing);
+    processingLogs.delete(logKey); // Remover do Set em memória também
     // Não interromper o fluxo se o log falhar
     console.error('Erro ao registrar log de acesso:', error);
   }

@@ -57,8 +57,19 @@ export default function Products() {
   }, [user, page, filters]);
 
   // Registrar acesso à página de produtos apenas uma vez quando o usuário acessa
+  // Usar um useEffect separado que só executa quando o componente é montado pela primeira vez
+  useEffect(() => {
+    // Resetar a flag quando o usuário mudar (logout/login)
+    pageAccessLoggedRef.current = false;
+  }, [user?.id]);
+
   useEffect(() => {
     if (user?.id && user?.empresa_id && !pageAccessLoggedRef.current) {
+      console.log('🔐 [Products] Registrando acesso à página de produtos:', {
+        userId: user.id,
+        empresaId: user.empresa_id,
+        pageAccessLoggedRef: pageAccessLoggedRef.current
+      });
       pageAccessLoggedRef.current = true;
       logPageAccess(user.id, user.empresa_id, '/produtos');
     }
