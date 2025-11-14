@@ -308,6 +308,8 @@ export default function Login() {
         height: isMobile ? containerHeight : 'auto',
         overflowY: isMobile ? 'auto' : 'visible',
         overflowX: 'hidden',
+        /* Cor de fundo abaixo do banner apenas para mobile */
+        backgroundColor: isMobile ? '#513375' : 'transparent',
         /* Prevenir zoom e garantir proporção correta no iOS */
         WebkitUserSelect: 'none',
         userSelect: 'none',
