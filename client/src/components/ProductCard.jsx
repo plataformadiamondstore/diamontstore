@@ -13,7 +13,8 @@ export default function ProductCard({ product, onAddToCart }) {
     setCurrentImageIndex(0);
   }, [product.id]);
 
-  // Registrar acesso ao produto quando ele é visualizado
+  // Registrar acesso ao produto quando ele é visualizado (apenas uma vez por sessão)
+  // O sistema de sessionStorage em logAccess.js já previne duplicatas
   useEffect(() => {
     if (user?.id && user?.empresa_id && product?.id) {
       logProductAccess(user.id, user.empresa_id, product.id);

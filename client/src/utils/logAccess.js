@@ -17,11 +17,31 @@ const detectDevice = () => {
   return isMobile ? 'mobile' : 'web';
 };
 
+// Verificar se já foi registrado nesta sessão
+const getLogKey = (funcionarioId, tipoEvento, pagina, produtoId) => {
+  if (produtoId) {
+    return `log_${funcionarioId}_${tipoEvento}_produto_${produtoId}`;
+  } else if (pagina) {
+    return `log_${funcionarioId}_${tipoEvento}_pagina_${pagina}`;
+  } else {
+    return `log_${funcionarioId}_${tipoEvento}`;
+  }
+};
+
 // Registrar log de acesso
 export const logAccess = async (funcionarioId, empresaId, tipoEvento, pagina = null, produtoId = null) => {
   try {
     // Não registrar se não houver funcionário logado
     if (!funcionarioId || !empresaId) {
+      return;
+    }
+
+    // Verificar se já foi registrado nesta sessão
+    const logKey = getLogKey(funcionarioId, tipoEvento, pagina, produtoId);
+    const alreadyLogged = sessionStorage.getItem(logKey);
+    
+    if (alreadyLogged) {
+      // Já foi registrado nesta sessão, não registrar novamente
       return;
     }
 
@@ -39,6 +59,14 @@ export const logAccess = async (funcionarioId, empresaId, tipoEvento, pagina = n
       ip_address: null, // Será capturado no backend se necessário
       sessao_id: sessaoId
     });
+
+    // Marcar como registrado nesta sessão (válido por 30 minutos)
+    sessionStorage.setItem(logKey, Date.now().toString());
+    
+    // Limpar logs antigos (mais de 30 minutos)
+    setTimeout(() => {
+      sessionStorage.removeItem(logKey);
+    }, 30 * 60 * 1000); // 30 minutos
   } catch (error) {
     // Não interromper o fluxo se o log falhar
     console.error('Erro ao registrar log de acesso:', error);

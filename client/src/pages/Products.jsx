@@ -53,12 +53,14 @@ export default function Products() {
     }
     loadProducts();
     loadFilters();
-    
-    // Registrar acesso à página de produtos
-    if (user.id && user.empresa_id) {
+  }, [user, page, filters]);
+
+  // Registrar acesso à página de produtos apenas uma vez quando o usuário acessa
+  useEffect(() => {
+    if (user?.id && user?.empresa_id) {
       logPageAccess(user.id, user.empresa_id, '/produtos');
     }
-  }, [user, page, filters]);
+  }, [user?.id]); // Apenas quando o usuário muda, não a cada mudança de filtros
 
   // Carregar contador do carrinho separadamente (só quando user mudar)
   useEffect(() => {
