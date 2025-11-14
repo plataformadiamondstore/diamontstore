@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { logProductAccess } from '../utils/logAccess';
 
@@ -6,20 +6,13 @@ export default function ProductCard({ product, onAddToCart }) {
   const { user } = useAuth();
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [variacaoSelecionada, setVariacaoSelecionada] = useState('');
+  const isProcessingRef = useRef(false); // Flag para evitar múltiplos cliques simultâneos
   
   // Resetar seleção quando o produto mudar
   useEffect(() => {
     setVariacaoSelecionada('');
     setCurrentImageIndex(0);
   }, [product.id]);
-
-  // Registrar acesso ao produto quando ele é visualizado (apenas uma vez por sessão)
-  // O sistema de sessionStorage em logAccess.js já previne duplicatas
-  useEffect(() => {
-    if (user?.id && user?.empresa_id && product?.id) {
-      logProductAccess(user.id, user.empresa_id, product.id);
-    }
-  }, [product.id, user?.id, user?.empresa_id]);
   
   // Usar imagens da tabela produto_imagens ou fallback para imagens antigas (JSONB)
   const images = product.produto_imagens && product.produto_imagens.length > 0
@@ -56,7 +49,43 @@ export default function ProductCard({ product, onAddToCart }) {
     setCurrentImageIndex((prev) => (prev - 1 + images.length) % images.length);
   };
 
-  const handleAddToCart = () => {
+  const handleAddToCart = (e) => {
+    // Prevenir propagação do evento
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+
+    // Prevenir múltiplos cliques simultâneos
+    if (isProcessingRef.current) {
+      console.log('⚠️ Clique ignorado - já processando...', {
+        produtoId: product.id,
+        produtoNome: product.nome
+      });
+      return;
+    }
+
+    isProcessingRef.current = true;
+
+    // Registrar acesso ao produto ANTES de adicionar ao carrinho
+    if (user?.id && user?.empresa_id && product?.id) {
+      console.log('📝 [ProductCard] Registrando acesso ao produto:', {
+        produtoId: product.id,
+        produtoNome: product.nome,
+        funcionarioId: user.id,
+        empresaId: user.empresa_id,
+        timestamp: new Date().toISOString()
+      });
+      logProductAccess(user.id, user.empresa_id, product.id);
+    } else {
+      console.warn('⚠️ [ProductCard] Não foi possível registrar log - dados faltando:', {
+        temUser: !!user,
+        temUserId: !!user?.id,
+        temEmpresaId: !!user?.empresa_id,
+        temProductId: !!product?.id
+      });
+    }
+
     // Adicionar ao carrinho
     onAddToCart(product.id, variacaoSelecionada || null);
     
@@ -64,6 +93,11 @@ export default function ProductCard({ product, onAddToCart }) {
     if (variacoes.length > 0) {
       setVariacaoSelecionada('');
     }
+
+    // Liberar flag após um pequeno delay para evitar cliques muito rápidos
+    setTimeout(() => {
+      isProcessingRef.current = false;
+    }, 1000); // 1 segundo
   };
 
   return (
@@ -163,7 +197,11 @@ export default function ProductCard({ product, onAddToCart }) {
         )}
 
         <button
-          onClick={handleAddToCart}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            handleAddToCart(e);
+          }}
           disabled={!botaoHabilitado}
           className={`w-full py-2 rounded-lg font-semibold transition-colors ${
             botaoHabilitado

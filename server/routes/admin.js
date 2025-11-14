@@ -2792,7 +2792,19 @@ router.post('/indicadores/log', async (req, res) => {
   try {
     const { funcionario_id, empresa_id, tipo_evento, pagina, produto_id, dispositivo, user_agent, ip_address, sessao_id } = req.body;
 
+    console.log('📝 POST /admin/indicadores/log - Recebido:', {
+      funcionario_id,
+      empresa_id,
+      tipo_evento,
+      pagina,
+      produto_id,
+      dispositivo,
+      sessao_id,
+      timestamp: new Date().toISOString()
+    });
+
     if (!funcionario_id || !empresa_id || !tipo_evento || !dispositivo) {
+      console.log('❌ Dados obrigatórios faltando');
       return res.status(400).json({ error: 'funcionario_id, empresa_id, tipo_evento e dispositivo são obrigatórios' });
     }
 
@@ -2812,13 +2824,20 @@ router.post('/indicadores/log', async (req, res) => {
       .select();
 
     if (error) {
-      console.error('Erro ao registrar log de acesso:', error);
+      console.error('❌ Erro ao registrar log de acesso:', error);
       return res.status(500).json({ error: error.message });
     }
 
+    console.log('✅ Log registrado com sucesso:', {
+      logId: data[0]?.id,
+      tipo_evento,
+      produto_id,
+      funcionario_id
+    });
+
     res.json({ success: true, log: data[0] });
   } catch (error) {
-    console.error('Erro completo ao registrar log:', error);
+    console.error('❌ Erro completo ao registrar log:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -2911,8 +2930,18 @@ router.get('/indicadores', async (req, res) => {
 
       // Produtos mais acessados
       if (log.tipo_evento === 'acesso_produto' && log.produto_id) {
+        // Usar ID do produto como chave para evitar duplicatas por nome
+        const produtoKey = `produto_${log.produto_id}`;
         const produtoNome = log.produtos?.nome || `Produto ${log.produto_id}`;
-        indicadores.produtos_mais_acessados[produtoNome] = (indicadores.produtos_mais_acessados[produtoNome] || 0) + 1;
+        
+        if (!indicadores.produtos_mais_acessados[produtoKey]) {
+          indicadores.produtos_mais_acessados[produtoKey] = {
+            nome: produtoNome,
+            id: log.produto_id,
+            acessos: 0
+          };
+        }
+        indicadores.produtos_mais_acessados[produtoKey].acessos++;
       }
 
       // Horários de pico (por hora do dia)
@@ -2937,16 +2966,102 @@ router.get('/indicadores', async (req, res) => {
     indicadores.total_sessoes = indicadores.sessoes.size;
     delete indicadores.sessoes;
 
-    // Calcular taxa de retorno (funcionários que fizeram login mais de uma vez)
-    const loginsPorFuncionario = {};
-    logs.filter(log => log.tipo_evento === 'login').forEach(log => {
-      const funcId = log.funcionario_id;
-      loginsPorFuncionario[funcId] = (loginsPorFuncionario[funcId] || 0) + 1;
-    });
-    const funcionariosRetorno = Object.values(loginsPorFuncionario).filter(count => count > 1).length;
-    indicadores.taxa_retorno = indicadores.logins > 0 
-      ? ((funcionariosRetorno / indicadores.logins) * 100).toFixed(2) 
-      : 0;
+    // Calcular taxa de retorno (funcionários com múltiplos pedidos com produtos aprovados)
+    // Buscar itens de pedidos com status "Produto autorizado"
+    let queryItens = supabase
+      .from('pedido_itens')
+      .select(`
+        id,
+        pedido_id,
+        status,
+        pedidos(
+          id,
+          funcionario_id,
+          empresa_id,
+          created_at
+        )
+      `)
+      .eq('status', 'Produto autorizado');
+
+    const { data: itensAprovados, error: errorItens } = await queryItens;
+
+    if (errorItens) {
+      console.error('Erro ao buscar itens aprovados:', errorItens);
+      indicadores.taxa_retorno = 0;
+    } else {
+      // Agrupar por pedido e funcionário, aplicando filtros
+      const pedidosPorFuncionario = {};
+      const funcionariosUnicos = new Set();
+
+      if (itensAprovados && itensAprovados.length > 0) {
+        // Criar um Set de pedidos únicos por funcionário
+        const pedidosUnicosPorFuncionario = {};
+
+        itensAprovados.forEach(item => {
+          // Verificar se pedidos é array ou objeto
+          const pedido = Array.isArray(item.pedidos) ? item.pedidos[0] : item.pedidos;
+          
+          if (pedido && pedido.funcionario_id) {
+            const funcId = pedido.funcionario_id;
+            const pedidoId = pedido.id;
+            const pedidoData = new Date(pedido.created_at);
+
+            // Aplicar filtros de data
+            let passarFiltroData = true;
+            if (data_inicio) {
+              const dataInicio = new Date(data_inicio);
+              if (pedidoData < dataInicio) passarFiltroData = false;
+            }
+            if (data_fim) {
+              const dataFimCompleta = new Date(data_fim);
+              dataFimCompleta.setHours(23, 59, 59, 999);
+              if (pedidoData > dataFimCompleta) passarFiltroData = false;
+            }
+
+            // Aplicar filtro de empresa
+            let passarFiltroEmpresa = true;
+            if (empresa_id && pedido.empresa_id !== parseInt(empresa_id, 10)) {
+              passarFiltroEmpresa = false;
+            }
+
+            // Se passar nos filtros, adicionar ao cálculo
+            if (passarFiltroData && passarFiltroEmpresa) {
+              funcionariosUnicos.add(funcId);
+
+              // Inicializar Set de pedidos únicos para este funcionário
+              if (!pedidosUnicosPorFuncionario[funcId]) {
+                pedidosUnicosPorFuncionario[funcId] = new Set();
+              }
+
+              // Adicionar pedido ao Set (Set automaticamente remove duplicatas)
+              pedidosUnicosPorFuncionario[funcId].add(pedidoId);
+            }
+          }
+        });
+
+        // Contar quantos pedidos únicos cada funcionário tem
+        Object.keys(pedidosUnicosPorFuncionario).forEach(funcId => {
+          pedidosPorFuncionario[funcId] = pedidosUnicosPorFuncionario[funcId].size;
+        });
+
+        // Funcionários com mais de 1 pedido com produtos aprovados = retorno
+        const funcionariosRetorno = Object.values(pedidosPorFuncionario).filter(count => count > 1).length;
+        const totalFuncionarios = funcionariosUnicos.size;
+
+        indicadores.taxa_retorno = totalFuncionarios > 0 
+          ? ((funcionariosRetorno / totalFuncionarios) * 100).toFixed(2) 
+          : 0;
+
+        console.log('📊 Taxa de retorno calculada:', {
+          totalFuncionarios,
+          funcionariosRetorno,
+          taxa: indicadores.taxa_retorno + '%',
+          totalItensAprovados: itensAprovados.length
+        });
+      } else {
+        indicadores.taxa_retorno = 0;
+      }
+    }
 
     // Calcular tempo médio de sessão (aproximado - diferença entre primeiro e último acesso da sessão)
     const sessoesTempo = {};
@@ -2976,6 +3091,30 @@ router.get('/indicadores', async (req, res) => {
     indicadores.tempo_medio_sessao = temposSessao.length > 0
       ? (temposSessao.reduce((a, b) => a + b, 0) / temposSessao.length).toFixed(2)
       : 0;
+
+    // Converter produtos_mais_acessados de objeto com chave para array para facilitar ordenação
+    const produtosMaisAcessadosArray = Object.values(indicadores.produtos_mais_acessados || {})
+      .sort((a, b) => b.acessos - a.acessos)
+      .slice(0, 10)
+      .map(produto => ({
+        nome: produto.nome,
+        id: produto.id,
+        acessos: produto.acessos
+      }));
+
+    // Converter de volta para objeto com nome como chave para compatibilidade com frontend
+    const produtosMaisAcessadosObj = {};
+    produtosMaisAcessadosArray.forEach(produto => {
+      produtosMaisAcessadosObj[produto.nome] = produto.acessos;
+    });
+
+    indicadores.produtos_mais_acessados = produtosMaisAcessadosObj;
+
+    console.log('📊 Indicadores processados:', {
+      total_acessos: indicadores.total_acessos,
+      produtos_mais_acessados: Object.keys(indicadores.produtos_mais_acessados).length,
+      taxa_retorno: indicadores.taxa_retorno
+    });
 
     res.json({ success: true, indicadores });
   } catch (error) {

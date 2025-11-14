@@ -33,6 +33,7 @@ export const logAccess = async (funcionarioId, empresaId, tipoEvento, pagina = n
   try {
     // Não registrar se não houver funcionário logado
     if (!funcionarioId || !empresaId) {
+      console.log('❌ Log não registrado: funcionário ou empresa não informados');
       return;
     }
 
@@ -42,13 +43,32 @@ export const logAccess = async (funcionarioId, empresaId, tipoEvento, pagina = n
     
     if (alreadyLogged) {
       // Já foi registrado nesta sessão, não registrar novamente
+      console.log('⏭️ Log já registrado nesta sessão, ignorando:', {
+        logKey,
+        tipoEvento,
+        produtoId,
+        pagina
+      });
       return;
     }
+
+    console.log('✅ Registrando novo log:', {
+      logKey,
+      tipoEvento,
+      produtoId,
+      pagina,
+      funcionarioId,
+      empresaId
+    });
+
+    // IMPORTANTE: Marcar como registrado ANTES da chamada assíncrona
+    // Isso previne condição de corrida quando múltiplos componentes chamam simultaneamente
+    sessionStorage.setItem(logKey, Date.now().toString());
 
     const dispositivo = detectDevice();
     const sessaoId = getSessionId();
 
-    await api.post('/admin/indicadores/log', {
+    const response = await api.post('/admin/indicadores/log', {
       funcionario_id: funcionarioId,
       empresa_id: empresaId,
       tipo_evento: tipoEvento, // 'login', 'acesso_pagina', 'acesso_produto'
@@ -60,14 +80,20 @@ export const logAccess = async (funcionarioId, empresaId, tipoEvento, pagina = n
       sessao_id: sessaoId
     });
 
-    // Marcar como registrado nesta sessão (válido por 30 minutos)
-    sessionStorage.setItem(logKey, Date.now().toString());
-    
+    console.log('✅ Log registrado com sucesso no backend:', {
+      logId: response.data?.log?.id,
+      tipoEvento,
+      produtoId
+    });
+
     // Limpar logs antigos (mais de 30 minutos)
     setTimeout(() => {
       sessionStorage.removeItem(logKey);
     }, 30 * 60 * 1000); // 30 minutos
   } catch (error) {
+    // Se houver erro, remover a marcação para permitir nova tentativa
+    const logKey = getLogKey(funcionarioId, tipoEvento, pagina, produtoId);
+    sessionStorage.removeItem(logKey);
     // Não interromper o fluxo se o log falhar
     console.error('Erro ao registrar log de acesso:', error);
   }
