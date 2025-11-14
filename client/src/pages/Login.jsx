@@ -12,6 +12,7 @@ export default function Login() {
   const [youtubeLink, setYoutubeLink] = useState('');
   const [youtubeEmbedUrl, setYoutubeEmbedUrl] = useState('');
   const [containerHeight, setContainerHeight] = useState('auto');
+  const [bannerTimestamp, setBannerTimestamp] = useState(Date.now());
   const loginCardRef = useRef(null);
   const empresaInputRef = useRef(null);
   const clubeInputRef = useRef(null);
@@ -280,10 +281,34 @@ export default function Login() {
     }
   };
 
+  // Atualizar timestamp do banner quando a página ganha foco (para pegar banner atualizado no Netlify)
+  useEffect(() => {
+    const handleFocus = () => {
+      // Atualizar timestamp para forçar reload do banner
+      setBannerTimestamp(Date.now());
+    };
+    
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        // Página ficou visível, atualizar timestamp
+        setBannerTimestamp(Date.now());
+      }
+    };
+    
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []);
+  
   // Determinar qual banner usar - DESKTOP USA banner_site.jpeg, MOBILE USA banner_mobile.jpeg
+  // Usar bannerTimestamp para forçar reload quando necessário
   const bannerSrc = isMobile 
-    ? `/banners/banner_mobile.jpeg?t=${Date.now()}`
-    : `/banners/banner_site.jpeg?t=${Date.now()}`;
+    ? `/banners/banner_mobile.jpeg?t=${bannerTimestamp}`
+    : `/banners/banner_site.jpeg?t=${bannerTimestamp}`;
   
   // Debug: Log do estado do YouTube
   useEffect(() => {
