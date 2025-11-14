@@ -2803,6 +2803,15 @@ router.post('/indicadores/log', async (req, res) => {
       timestamp: new Date().toISOString()
     });
 
+    // Log específico para login
+    if (tipo_evento === 'login') {
+      console.log('🔐 LOGIN sendo registrado:', {
+        funcionario_id,
+        empresa_id,
+        dispositivo
+      });
+    }
+
     if (!funcionario_id || !empresa_id || !tipo_evento || !dispositivo) {
       console.log('❌ Dados obrigatórios faltando');
       return res.status(400).json({ error: 'funcionario_id, empresa_id, tipo_evento e dispositivo são obrigatórios' });
@@ -2884,6 +2893,18 @@ router.get('/indicadores', async (req, res) => {
       return res.status(500).json({ error: error.message });
     }
 
+    console.log('📊 Total de logs encontrados:', logs.length);
+    const loginsEncontrados = logs.filter(log => log.tipo_evento === 'login');
+    console.log('🔐 Logins encontrados:', loginsEncontrados.length);
+    if (loginsEncontrados.length > 0) {
+      console.log('🔐 Primeiros 3 logins:', loginsEncontrados.slice(0, 3).map(l => ({
+        id: l.id,
+        tipo_evento: l.tipo_evento,
+        funcionario_id: l.funcionario_id,
+        created_at: l.created_at
+      })));
+    }
+
     // Processar dados para indicadores
     const indicadores = {
       total_acessos: logs.length,
@@ -2904,11 +2925,29 @@ router.get('/indicadores', async (req, res) => {
 
     logs.forEach(log => {
       const data = new Date(log.created_at);
-      const dia = data.toISOString().split('T')[0]; // YYYY-MM-DD
-      const hora = data.getHours();
+      
+      // Converter para horário do Brasil (UTC-3)
+      // Criar uma data no timezone do Brasil usando Intl.DateTimeFormat
+      const formatter = new Intl.DateTimeFormat('pt-BR', {
+        timeZone: 'America/Sao_Paulo',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+      });
+      
+      const partes = formatter.formatToParts(data);
+      const ano = partes.find(p => p.type === 'year').value;
+      const mes = partes.find(p => p.type === 'month').value;
+      const dia = partes.find(p => p.type === 'day').value;
+      const hora = parseInt(partes.find(p => p.type === 'hour').value, 10);
+      
+      const diaFormatado = `${ano}-${mes}-${dia}`; // YYYY-MM-DD
 
       // Acessos por dia
-      indicadores.acessos_por_dia[dia] = (indicadores.acessos_por_dia[dia] || 0) + 1;
+      indicadores.acessos_por_dia[diaFormatado] = (indicadores.acessos_por_dia[diaFormatado] || 0) + 1;
 
       // Acessos por hora
       indicadores.acessos_por_hora[hora] = (indicadores.acessos_por_hora[hora] || 0) + 1;
@@ -2950,6 +2989,12 @@ router.get('/indicadores', async (req, res) => {
       // Contar tipos de eventos
       if (log.tipo_evento === 'login') {
         indicadores.logins++;
+        console.log('✅ Login contabilizado:', {
+          logId: log.id,
+          funcionarioId: log.funcionario_id,
+          tipoEvento: log.tipo_evento,
+          created_at: log.created_at
+        });
       } else if (log.tipo_evento === 'acesso_pagina') {
         indicadores.acessos_paginas++;
       } else if (log.tipo_evento === 'acesso_produto') {

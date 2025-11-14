@@ -256,7 +256,18 @@ export default function Login() {
         
         // Registrar log de login
         if (response.data.funcionario?.id && response.data.funcionario?.empresa_id) {
+          console.log('🔐 [Login] Registrando log de login:', {
+            funcionarioId: response.data.funcionario.id,
+            empresaId: response.data.funcionario.empresa_id,
+            nome: response.data.funcionario.nome
+          });
           logLogin(response.data.funcionario.id, response.data.funcionario.empresa_id);
+        } else {
+          console.warn('⚠️ [Login] Não foi possível registrar log - dados faltando:', {
+            temFuncionario: !!response.data.funcionario,
+            temId: !!response.data.funcionario?.id,
+            temEmpresaId: !!response.data.funcionario?.empresa_id
+          });
         }
         
         // 4. Pequeno delay antes de navegar para garantir que o teclado feche
