@@ -365,12 +365,12 @@ export default function Login() {
       style={{
         position: 'relative',
         width: '100%',
-        minHeight: isMobile ? containerHeight : '100vh',
-        height: isMobile ? containerHeight : 'auto',
+        minHeight: '100vh', // Altura da viewport
+        height: isMobile ? 'auto' : 'auto',
         overflowY: isMobile ? 'auto' : 'visible',
         overflowX: 'hidden',
-        /* Cor de fundo roxo #513375 abaixo do banner apenas para mobile */
-        backgroundColor: isMobile ? '#513375' : 'transparent',
+        /* Sem cor de fundo - apenas o banner */
+        backgroundColor: 'transparent',
         /* Prevenir zoom e garantir proporção correta no iOS */
         WebkitUserSelect: 'none',
         userSelect: 'none',
@@ -493,28 +493,41 @@ export default function Login() {
         <div 
           ref={loginCardRef}
           className={`relative flex justify-center ${
-            isMobile ? 'w-full max-w-md mx-auto px-3 mt-[0vh]' : 'w-1/3 max-w-md flex-shrink-0 flex flex-col'
+            isMobile ? 'w-full max-w-md mx-auto px-3' : 'w-1/3 max-w-md flex-shrink-0 flex flex-col'
           }`}
           style={{
             position: 'relative',
             zIndex: 10,
-            ...(!isMobile && { marginTop: 0, height: '100%', display: 'flex', flexDirection: 'column' })
+            ...(isMobile ? { 
+              marginTop: '70vh', // Card 20% mais abaixo do centro
+              transform: 'translateY(-50%)' // Centralizar verticalmente
+            } : { 
+              marginTop: 0, 
+              height: '100%', 
+              display: 'flex', 
+              flexDirection: 'column' 
+            })
           }}
         >
         <div className={`rounded-2xl shadow-2xl border-2 ${
           isMobile 
-            ? 'p-5 w-full max-w-[320px] bg-white border-gray-200' 
+            ? 'p-5 w-full max-w-[320px] border-white/40' 
             : 'p-4 w-full bg-white/20 border-white/40 flex-1 flex flex-col backdrop-blur-md'
         }`}
         style={{
-          ...(isMobile ? {} : {
+          ...(isMobile ? {
+            backgroundColor: 'rgba(255, 255, 255, 0.85)', // Transparência para ver o banner
+            backdropFilter: 'blur(10px)',
+            WebkitBackdropFilter: 'blur(10px)',
+            position: 'relative',
+            zIndex: 20,
+            visibility: 'visible',
+            display: 'block'
+          } : {
             backdropFilter: 'blur(10px)',
             WebkitBackdropFilter: 'blur(10px)',
             backgroundColor: 'rgba(240, 248, 255, 0.35)'
           }),
-          ...(isMobile ? {
-            backgroundColor: 'rgba(255, 255, 255, 0.95)'
-          } : {}),
           ...(!isMobile && { height: '100%', display: 'flex', flexDirection: 'column' })
         }}>
         <div className={`text-center ${isMobile ? 'mb-5' : 'mb-4'} rounded-lg ${isMobile ? 'p-4' : 'p-3'}`}
@@ -524,8 +537,11 @@ export default function Login() {
           WebkitBackdropFilter: 'blur(8px)',
           border: '1px solid rgba(255, 255, 255, 0.3)'
         }}>
-          <h1 className={`font-bold text-primary-purple mb-2 ${isMobile ? 'text-2xl' : 'text-3xl'}`}>
-            Sloth Empresas
+          <h1 
+            className={`font-bold mb-2 ${isMobile ? 'text-2xl' : 'text-3xl'}`}
+            style={{ color: '#ca9c43' }}
+          >
+            Diamond Store
           </h1>
           <p className={`text-gray-600 ${isMobile ? 'text-sm' : ''}`}>Acesse sua conta</p>
         </div>
@@ -580,7 +596,7 @@ export default function Login() {
                 : 'py-3'
             }`}
             style={{
-              backgroundColor: loading ? '#9333ea' : '#9333ea',
+              backgroundColor: loading ? '#ca9c43' : '#ca9c43',
               opacity: loading ? 0.5 : 1
             }}
           >
