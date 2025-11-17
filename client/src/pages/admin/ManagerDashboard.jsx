@@ -210,7 +210,7 @@ export default function ManagerDashboard() {
             }
             body { font-family: Arial, sans-serif; padding: 10px; font-size: 12px; }
             .logo-container { text-align: center; margin-bottom: 20px; }
-            .logo-container img { max-height: 80px; max-width: 200px; }
+            .logo-container img { max-height: 112px; max-width: 280px; }
             .pedido { margin-bottom: 20px; border: 1px solid #333; padding: 10px; max-width: 100%; }
             h1 { text-align: center; margin-bottom: 15px; font-size: 18px; }
             h2 { color: #6B46C1; border-bottom: 1px solid #6B46C1; padding-bottom: 5px; margin-bottom: 10px; font-size: 14px; }
@@ -225,7 +225,7 @@ export default function ManagerDashboard() {
         </head>
         <body>
           <div class="logo-container">
-            <img src="/logo.png" alt="Logo" onerror="this.style.display='none'" />
+            <img src="/logo/logo.png" alt="Logo" onerror="this.src='/logo.png'; this.onerror=null;" />
           </div>
           <div class="pedido">
             <h2>Pedido #${pedido.id}</h2>
